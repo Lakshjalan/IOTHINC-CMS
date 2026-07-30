@@ -1,0 +1,15 @@
+# IOTHINC
+
+> IOTHINC is the IoT & Innovation Club at VIT Chennai. We build embedded systems, web applications, and compete in tech challenges.
+
+## Links
+
+- [Home](https://iothinc.in/)
+- [Dashboard](https://iothinc.in/dashboard)
+- [Members](https://iothinc.in/members)
+- [Projects](https://iothinc.in/projects)
+- [Events](https://iothinc.in/events)
+- [Competitions](https://iothinc.in/competitions)
+- [Teams](https://iothinc.in/teams)
+- [Learn](https://iothinc.in/learn)
+- [Leadership](https://iothinc.in/leadership)

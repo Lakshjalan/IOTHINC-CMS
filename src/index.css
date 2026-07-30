@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode: warm off-white base, zinc neutrals, copper accent */
+    --color-surface: 250 250 249;
+    --color-surface-container: 244 244 243;
+    --color-surface-container-lowest: 255 255 255;
+    --color-surface-container-low: 248 248 247;
+    --color-surface-container-high: 235 234 232;
+    --color-surface-container-highest: 227 226 224;
+    --color-surface-variant: 225 223 220;
+    --color-surface-bright: 250 250 249;
+    --color-surface-dim: 216 215 213;
+    
+    --color-on-surface: 28 25 23;
+    --color-on-surface-variant: 87 83 78;
+    
+    --color-background: 250 250 249;
+    --color-on-background: 28 25 23;
+    
+    /* Copper accent - the single accent color */
+    --color-accent: 180 120 50;
+    --color-primary: 180 120 50;
+    --color-on-primary: 255 255 255;
+    --color-primary-container: 255 230 200;
+    --color-on-primary-container: 80 45 0;
+    
+    --color-secondary: 113 107 98;
+    --color-on-secondary: 255 255 255;
+    
+    --color-outline: 121 116 110;
+    --color-outline-variant: 202 196 189;
+    
+    --color-error: 179 38 30;
+    --color-on-error: 255 255 255;
+    --color-error-container: 249 222 220;
+    --color-on-error-container: 65 14 11;
+    
+    --color-success: 46 125 50;
+    
+    --color-inverse-surface: 49 46 43;
+    --color-inverse-on-surface: 244 240 237;
+    --color-inverse-primary: 217 161 82;
+    --color-surface-tint: 180 120 50;
+  }
+
+  .dark {
+    /* Dark mode: off-black base, zinc neutrals, copper accent */
+    --color-surface: 18 18 16;
+    --color-surface-container: 30 29 27;
+    --color-surface-container-lowest: 13 13 12;
+    --color-surface-container-low: 26 25 24;
+    --color-surface-container-high: 40 39 37;
+    --color-surface-container-highest: 51 50 48;
+    --color-surface-variant: 51 50 48;
+    --color-surface-bright: 56 55 53;
+    --color-surface-dim: 18 18 16;
+    
+    --color-on-surface: 229 225 221;
+    --color-on-surface-variant: 206 200 193;
+    
+    --color-background: 18 18 16;
+    --color-on-background: 229 225 221;
+    
+    /* Copper accent - same hue, tuned for dark backgrounds */
+    --color-accent: 217 161 82;
+    --color-primary: 217 161 82;
+    --color-on-primary: 60 35 0;
+    --color-primary-container: 180 120 50;
+    --color-on-primary-container: 255 230 200;
+    
+    --color-secondary: 200 196 190;
+    --color-on-secondary: 48 46 42;
+    
+    --color-outline: 151 146 139;
+    --color-outline-variant: 73 69 64;
+    
+    --color-error: 255 180 171;
+    --color-on-error: 105 0 5;
+    --color-error-container: 147 0 10;
+    --color-on-error-container: 255 218 214;
+    
+    --color-success: 62 207 142;
+    
+    --color-inverse-surface: 229 225 221;
+    --color-inverse-on-surface: 49 46 43;
+    --color-inverse-primary: 140 90 30;
+    --color-surface-tint: 217 161 82;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-on-background));
+}
+
+/* Reduced motion: disable all animations and transitions */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus ring using accent color */
+.input-focus-ring:focus-within {
+  border-color: rgb(var(--color-primary));
+  box-shadow: 0 0 0 3px rgba(var(--color-primary) / 0.15);
+}
+
+/* Hide scrollbars for side navigation */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Material symbol styling standardisation */
+.material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Reusable keyframe animations                                    */
+/* ═══════════════════════════════════════════════════════════════ */
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(var(--color-accent) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(var(--color-accent) / 0.15);
+  }
+}
+
+/* Utility animation classes */
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-surface-container)) 25%,
+    rgb(var(--color-surface-container-high)) 50%,
+    rgb(var(--color-surface-container)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* Stagger delay utilities (for JS-driven stagger or nth-child) */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
