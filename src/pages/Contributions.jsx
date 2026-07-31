@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
@@ -8,10 +8,11 @@ export const Contributions = () => {
   const { user, role } = useAuth()
   const canManage = (role === 'chairperson' || role === 'vice_chairperson')
   const { contributions, loading, toggleFlagContribution, deleteContribution, refetch } = useContributions()
+  const [searchParams] = useSearchParams()
 
-  const [filterProject, setFilterProject] = useState('')
-  const [filterEvent, setFilterEvent] = useState('')
-  const [filterMember, setFilterMember] = useState('')
+  const [filterProject, setFilterProject] = useState(searchParams.get('project_id') || '')
+  const [filterEvent, setFilterEvent] = useState(searchParams.get('event_id') || '')
+  const [filterMember, setFilterMember] = useState(searchParams.get('member_id') || '')
   const [projectsList, setProjectsList] = useState([])
   const [eventsList, setEventsList] = useState([])
   const [membersList, setMembersList] = useState([])
@@ -19,7 +20,7 @@ export const Contributions = () => {
   useEffect(() => { document.title = "Contributions | IOTHINC" }, [])
 
   useEffect(() => {
-    supabase.from('projects').select('id,name').then(r => setProjectsList(r.data || []))
+    supabase.from('projects').select('id,title').then(r => setProjectsList(r.data || []))
     supabase.from('events').select('id,title').then(r => setEventsList(r.data || []))
     supabase.from('profiles').select('id,full_name').then(r => setMembersList(r.data || []))
   }, [])
@@ -45,7 +46,7 @@ export const Contributions = () => {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
-        <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className="bg-surface-container text-on-surface p-2.5 rounded-lg border border-outline-variant text-xs"><option value="">All Projects</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+        <select value={filterProject} onChange={e => setFilterProject(e.target.value)} className="bg-surface-container text-on-surface p-2.5 rounded-lg border border-outline-variant text-xs"><option value="">All Projects</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select>
         <select value={filterEvent} onChange={e => setFilterEvent(e.target.value)} className="bg-surface-container text-on-surface p-2.5 rounded-lg border border-outline-variant text-xs"><option value="">All Events</option>{eventsList.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}</select>
         <select value={filterMember} onChange={e => setFilterMember(e.target.value)} className="bg-surface-container text-on-surface p-2.5 rounded-lg border border-outline-variant text-xs"><option value="">All Members</option>{membersList.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select>
         {(filterProject || filterEvent || filterMember) && <button onClick={() => { setFilterProject(''); setFilterEvent(''); setFilterMember('') }} className="text-primary text-xs font-bold font-label-caps uppercase hover:underline">Clear</button>}

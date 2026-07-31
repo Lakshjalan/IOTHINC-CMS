@@ -40,8 +40,8 @@ export const Leadership = () => {
   }, [fetchLeaders])
 
   const roleBadge = (r) => {
-    if (r === 'chairperson' || r === 'vice_chairperson') return 'bg-red-500/20 text-red-400'
-    if (r === 'department_lead') return 'bg-amber-400/20 text-amber-300'
+    if (r === 'chairperson' || r === 'vice_chairperson') return 'bg-error/20 text-error'
+    if (r === 'department_lead') return 'bg-amber-500/20 text-amber-400'
     return 'bg-primary/20 text-primary'
   }
 
@@ -76,7 +76,9 @@ export const Leadership = () => {
               />
               <h3 className="font-headline-lg text-lg text-on-surface font-bold">{leader.full_name}</h3>
               <span className={`mt-2 text-xs font-bold font-label-caps px-3 py-1 rounded-full uppercase ${roleBadge(leader.role)}`}>
-                {formatRole(leader.role)}
+                {(leader.role === 'department_lead' || leader.role === 'vice_chairperson') && leader.member_tag
+                  ? leader.member_tag
+                  : formatRole(leader.role)}
               </span>
               {leader.department && (
                 <span className="mt-3 text-sm text-on-surface-variant font-medium">

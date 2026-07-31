@@ -132,7 +132,7 @@ export const Home = () => {
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
         <div className="flex items-center gap-2">
-          <IothincLogo className="h-16 w-[190px] text-on-surface" alt="IOTHINC Logo" />
+          <IothincLogo className="h-12 w-auto text-on-surface" alt="IOTHINC Logo" />
         </div>
 
         <div className="flex items-center gap-6">
@@ -426,8 +426,7 @@ export const Home = () => {
       <footer className="py-12 px-6 md:px-12 border-t border-outline-variant bg-surface-container-lowest">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
-            <IothincLogo className="h-14 w-[160px] text-on-surface" alt="IOTHINC Logo" />
-            <span className="font-mono text-xs font-bold tracking-widest text-on-surface">IOTHINC</span>
+            <IothincLogo className="h-12 w-auto text-on-surface" alt="IOTHINC Logo" />
           </div>
 
           <div className="flex gap-6 text-xs font-mono text-on-surface-variant">

@@ -82,6 +82,7 @@ export const useMembers = (filters = {}) => {
     if (memberData.skills !== undefined)    safeData.skills      = sanitizeStringArray(memberData.skills || [])
     if (memberData.bio !== undefined)       safeData.bio         = sanitizeText(memberData.bio, 2000)
     if (memberData.needs_approval !== undefined) safeData.needs_approval = !!memberData.needs_approval
+    if (memberData.member_tag !== undefined) safeData.member_tag = sanitizeText(memberData.member_tag, 100)
 
     const { data, error: err } = await supabase
       .from('profiles')

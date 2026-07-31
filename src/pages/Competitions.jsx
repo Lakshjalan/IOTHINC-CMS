@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { getOptimizedImageUrl } from '../utils/imageOptimizer'
+import { useCompetitionPosterUpload } from '../lib/unifiedStorage'
 
 // ── Status badge ──────────────────────────────────────────────
 const StatusBadge = ({ status }) => (
@@ -63,6 +64,8 @@ const CompDetailModal = ({ comp: initialComp, userId, canHost, onClose, onSubmit
   const isHostOrAdmin = canHost
 
   // ── Poster upload ─────────────────────────────────────────
+  const uploadPoster = useCompetitionPosterUpload()
+
   const handlePosterUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -71,36 +74,8 @@ const CompDetailModal = ({ comp: initialComp, userId, canHost, onClose, onSubmit
 
     setUploading(true)
     try {
-      let poster_url = null
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-
-      // Upload directly to Cloudinary (25 GB Free tier + Auto CDN optimization)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('upload_preset', 'ml_default')
-
-      const cldRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (cldRes.ok) {
-        const cldData = await cldRes.json()
-        poster_url = cldData.secure_url
-      } else {
-        // Fallback to Supabase Storage competition-assets bucket
-        const ext = file.name.split('.').pop()
-        const path = `competition-posters/${comp.id}.${ext}`
-        const { error: upErr } = await supabase.storage
-          .from('competition-assets')
-          .upload(path, file, { upsert: true, contentType: file.type })
-        if (upErr) throw upErr
-
-        const { data: urlData } = supabase.storage
-          .from('competition-assets')
-          .getPublicUrl(path)
-        poster_url = urlData.publicUrl
-      }
+      const result = await uploadPoster(file, comp.id)
+      const poster_url = result.url
 
       const { error: dbErr } = await supabase
         .from('competitions')

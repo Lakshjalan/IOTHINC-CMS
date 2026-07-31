@@ -419,19 +419,31 @@ export const ProjectDetail = () => {
         <div className="lg:col-span-5 bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-headline-lg text-lg text-on-surface">Contributions</h3>
-            <Link 
-              to={`/contributions/new?project_id=${id}`}
-              className="text-primary font-label-caps text-xs uppercase hover:underline"
-            >
-              Log New
-            </Link>
+            <div className="flex gap-4">
+              <Link 
+                to={`/contributions?project_id=${id}`}
+                className="text-primary font-label-caps text-xs uppercase hover:underline"
+              >
+                View All
+              </Link>
+              <Link 
+                to={`/contributions/new?project_id=${id}`}
+                className="text-primary font-label-caps text-xs uppercase hover:underline"
+              >
+                Log New
+              </Link>
+            </div>
           </div>
           {contributions.length === 0 ? (
             <p className="text-sm text-on-surface-variant italic text-center p-4">No logged contributions.</p>
           ) : (
             <div className="space-y-4">
               {contributions.map(c => (
-                <div key={c.id} className="p-3 bg-surface-container-low border border-outline-variant rounded-lg">
+                <Link 
+                  key={c.id} 
+                  to={`/contributions?project_id=${id}`}
+                  className="block p-3 bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-high transition-colors"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <img 
                       alt="" 
@@ -442,7 +454,7 @@ export const ProjectDetail = () => {
                   </div>
                   <h4 className="font-bold text-sm text-on-surface mb-1">{c.title}</h4>
                   <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3">{c.description}</p>
-                </div>
+                </Link>
               ))}
             </div>
           )}

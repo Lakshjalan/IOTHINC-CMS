@@ -363,80 +363,80 @@ export const Scheduler = () => {
     const header = VIT_TIMETABLE.header
     return (
       <div className="overflow-x-auto no-scrollbar pb-2">
-        <table className="w-full min-w-[950px] border-collapse text-[11px] font-sans border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm rounded-lg overflow-hidden">
+        <table className="w-full min-w-[760px] border-collapse text-[10px] font-sans border border-outline-variant/30 bg-surface-container rounded-xl overflow-hidden shadow-sm">
           <thead>
             {/* Header Row 1: Theory Start */}
-            <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
-              <th rowSpan={2} colSpan={2} className="p-2 border-r border-b border-slate-300 dark:border-slate-700 font-bold uppercase tracking-wider text-xs text-center w-24 bg-slate-200/70 dark:bg-slate-800">
+            <tr className="bg-surface-container-high/80 text-on-surface border-b border-outline-variant/30">
+              <th rowSpan={2} colSpan={2} className="p-1 border-r border-b border-outline-variant/30 font-bold uppercase tracking-wider text-xs text-center w-24 bg-surface-container-highest">
                 THEORY
               </th>
-              <th className="px-2 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 w-12 text-center">
+              <th className="px-2 py-0.5 border-r border-b border-outline-variant/30 font-semibold text-on-surface-variant bg-surface-container-high w-12 text-center">
                 Start
               </th>
               {header.theoryStart.slice(0, 6).map((t, idx) => (
-                <th key={`tstart-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center font-medium">
+                <th key={`tstart-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center font-medium">
                   {t}
                 </th>
               ))}
-              <th rowSpan={4} className="px-2 py-2 border-r border-b border-slate-300 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 bg-slate-200/80 dark:bg-slate-800 text-center w-14 uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">
+              <th rowSpan={4} className="px-2 py-2 border-r border-b border-outline-variant/30 font-bold text-on-surface bg-surface-container-highest text-center w-12 uppercase tracking-widest text-[9px] [writing-mode:vertical-lr] rotate-180">
                 Lunch
               </th>
               {header.theoryStart.slice(6).map((t, idx) => (
-                <th key={`tstart-pm-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center font-medium">
+                <th key={`tstart-pm-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center font-medium">
                   {t}
                 </th>
               ))}
             </tr>
 
             {/* Header Row 2: Theory End */}
-            <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
-              <th className="px-2 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 text-center">
+            <tr className="bg-surface-container-high/85 text-on-surface border-b border-outline-variant/30">
+              <th className="px-2 py-0.5 border-r border-b border-outline-variant/30 font-semibold text-on-surface-variant bg-surface-container-high text-center">
                 End
               </th>
               {header.theoryEnd.slice(0, 6).map((t, idx) => (
-                <th key={`tend-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center text-slate-500 dark:text-slate-400">
+                <th key={`tend-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center text-on-surface-variant">
                   {t}
                 </th>
               ))}
               {header.theoryEnd.slice(6).map((t, idx) => (
-                <th key={`tend-pm-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center text-slate-500 dark:text-slate-400">
+                <th key={`tend-pm-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center text-on-surface-variant">
                   {t}
                 </th>
               ))}
             </tr>
 
             {/* Header Row 3: Lab Start */}
-            <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
-              <th rowSpan={2} colSpan={2} className="p-2 border-r border-b border-slate-300 dark:border-slate-700 font-bold uppercase tracking-wider text-xs text-center bg-slate-200/70 dark:bg-slate-800">
+            <tr className="bg-surface-container-high/80 text-on-surface border-b border-outline-variant/30">
+              <th rowSpan={2} colSpan={2} className="p-2 border-r border-b border-outline-variant/30 font-bold uppercase tracking-wider text-xs text-center bg-surface-container-highest">
                 LAB
               </th>
-              <th className="px-2 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 text-center">
+              <th className="px-2 py-0.5 border-r border-b border-outline-variant/30 font-semibold text-on-surface-variant bg-surface-container-high text-center">
                 Start
               </th>
               {header.labStart.slice(0, 6).map((t, idx) => (
-                <th key={`lstart-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center font-medium">
+                <th key={`lstart-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center font-medium">
                   {t}
                 </th>
               ))}
               {header.labStart.slice(6).map((t, idx) => (
-                <th key={`lstart-pm-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center font-medium">
+                <th key={`lstart-pm-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center font-medium">
                   {t}
                 </th>
               ))}
             </tr>
 
             {/* Header Row 4: Lab End */}
-            <tr className="bg-slate-200/60 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-b-2 border-slate-400 dark:border-slate-600">
-              <th className="px-2 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 text-center">
+            <tr className="bg-surface-container-high/90 text-on-surface border-b-2 border-outline-variant/40">
+              <th className="px-2 py-0.5 border-r border-b border-outline-variant/30 font-semibold text-on-surface-variant bg-surface-container-high text-center">
                 End
               </th>
               {header.labEnd.slice(0, 6).map((t, idx) => (
-                <th key={`lend-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center text-slate-500 dark:text-slate-400">
+                <th key={`lend-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center text-on-surface-variant">
                   {t}
                 </th>
               ))}
               {header.labEnd.slice(6).map((t, idx) => (
-                <th key={`lend-pm-${idx}`} className="px-1.5 py-1 border-r border-b border-slate-300 dark:border-slate-700 font-mono text-[10px] text-center text-slate-500 dark:text-slate-400">
+                <th key={`lend-pm-${idx}`} className="px-1.5 py-0.5 border-r border-b border-outline-variant/30 font-mono text-[9px] text-center text-on-surface-variant">
                   {t}
                 </th>
               ))}
@@ -447,32 +447,32 @@ export const Scheduler = () => {
             {VIT_TIMETABLE.days.map((dayObj, dayIdx) => (
               <React.Fragment key={dayObj.name}>
                 {/* THEORY Row for Day */}
-                <tr className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <tr className="border-b border-outline-variant/20 hover:bg-surface-container-low transition-colors">
                   <td 
                     rowSpan={2} 
-                    className="px-3 py-2 border-r border-b border-slate-300 dark:border-slate-700 font-bold text-center text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 uppercase tracking-wide w-14"
+                  className="px-2.5 py-1 border-r border-b border-outline-variant/30 font-bold text-center text-xs bg-surface-container-highest text-on-surface uppercase tracking-wide w-14"
                   >
                     {dayObj.name}
                   </td>
-                  <td className="px-2 py-2 border-r border-slate-300 dark:border-slate-700 font-semibold text-[10px] text-slate-600 dark:text-slate-400 text-center uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50 w-16">
+                  <td className="px-2 py-1 border-r border-outline-variant/30 font-semibold text-[9px] text-on-surface-variant text-center uppercase tracking-wider bg-surface-container-high/40 w-16">
                     THEORY
                   </td>
-                  <td className="border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20" />
+                  <td className="border-r border-outline-variant/20 bg-surface-container-low" />
 
                   {/* 6 Morning Theory Slots */}
                   {dayObj.theory.slice(0, 6).map((code, slotOffset) => {
                     const slotIdx = slotOffset
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-theory`)
                     let cellBg = isSelected 
-                      ? 'bg-[#d9f99d] dark:bg-[#365314] text-[#1a2e05] dark:text-[#d9f99d] font-bold border-[#84cc16] shadow-inner ring-1 ring-inset ring-[#84cc16]' 
-                      : 'bg-[#fef9c3]/50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-amber-100/50 dark:hover:bg-slate-800/60'
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
-                      <td key={`${dayIdx}-th-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                      <td key={`${dayIdx}-th-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'theory')}
-                          className={`w-full h-full py-2.5 px-1 flex flex-col items-center justify-center font-mono text-[11px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Theory Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -481,22 +481,22 @@ export const Scheduler = () => {
                     )
                   })}
 
-                  <td rowSpan={2} className="border-r border-slate-300 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 font-mono text-[9px] text-center" />
+                  <td rowSpan={2} className="border-r border-outline-variant/30 bg-surface-container-high/50 text-on-surface-variant/40 font-mono text-[9px] text-center" />
 
                   {/* 6 Afternoon Theory Slots */}
                   {dayObj.theory.slice(6).map((code, slotOffset) => {
                     const slotIdx = slotOffset + 6
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-theory`)
                     let cellBg = isSelected 
-                      ? 'bg-[#d9f99d] dark:bg-[#365314] text-[#1a2e05] dark:text-[#d9f99d] font-bold border-[#84cc16] shadow-inner ring-1 ring-inset ring-[#84cc16]' 
-                      : 'bg-[#fef9c3]/50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-amber-100/50 dark:hover:bg-slate-800/60'
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
-                      <td key={`${dayIdx}-th-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                      <td key={`${dayIdx}-th-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'theory')}
-                          className={`w-full h-full py-2.5 px-1 flex flex-col items-center justify-center font-mono text-[11px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Theory Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -507,26 +507,26 @@ export const Scheduler = () => {
                 </tr>
 
                 {/* LAB Row for Day */}
-                <tr className="border-b-2 border-slate-300 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-2 py-2 border-r border-slate-300 dark:border-slate-700 font-semibold text-[10px] text-slate-600 dark:text-slate-400 text-center uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
+                <tr className="border-b-2 border-outline-variant/40 hover:bg-surface-container-low transition-colors">
+                  <td className="px-2 py-1 border-r border-outline-variant/30 font-semibold text-[9px] text-on-surface-variant text-center uppercase tracking-wider bg-surface-container-high/40">
                     LAB
                   </td>
-                  <td className="border-r border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20" />
+                  <td className="border-r border-outline-variant/20 bg-surface-container-low" />
 
                   {/* 6 Morning Lab Slots */}
                   {dayObj.lab.slice(0, 6).map((code, slotOffset) => {
                     const slotIdx = slotOffset
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-lab`)
                     let cellBg = isSelected 
-                      ? 'bg-[#d9f99d] dark:bg-[#365314] text-[#1a2e05] dark:text-[#d9f99d] font-bold border-[#84cc16] shadow-inner ring-1 ring-inset ring-[#84cc16]' 
-                      : 'bg-[#fef9c3]/50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-amber-100/50 dark:hover:bg-slate-800/60'
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
-                      <td key={`${dayIdx}-lb-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                      <td key={`${dayIdx}-lb-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'lab')}
-                          className={`w-full h-full py-2.5 px-1 flex flex-col items-center justify-center font-mono text-[11px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Lab Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -540,15 +540,15 @@ export const Scheduler = () => {
                     const slotIdx = slotOffset + 6
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-lab`)
                     let cellBg = isSelected 
-                      ? 'bg-[#d9f99d] dark:bg-[#365314] text-[#1a2e05] dark:text-[#d9f99d] font-bold border-[#84cc16] shadow-inner ring-1 ring-inset ring-[#84cc16]' 
-                      : 'bg-[#fef9c3]/50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-amber-100/50 dark:hover:bg-slate-800/60'
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
-                      <td key={`${dayIdx}-lb-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                      <td key={`${dayIdx}-lb-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'lab')}
-                          className={`w-full h-full py-2.5 px-1 flex flex-col items-center justify-center font-mono text-[11px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Lab Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -569,25 +569,25 @@ export const Scheduler = () => {
   const renderSimplifiedTeamGrid = () => {
     return (
       <div className="overflow-x-auto no-scrollbar pb-2">
-        <table className="w-full min-w-[900px] border-collapse text-[11px] font-sans border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm rounded-lg overflow-hidden">
+        <table className="w-full min-w-[760px] border-collapse text-[10px] font-sans border border-outline-variant/30 bg-surface-container rounded-xl overflow-hidden shadow-sm">
           <thead>
-            <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-b border-slate-300 dark:border-slate-700">
-              <th className="p-3 border-r border-slate-300 dark:border-slate-700 font-bold uppercase tracking-wider text-xs text-center w-20 bg-slate-200/70 dark:bg-slate-800">
+            <tr className="bg-surface-container-high text-on-surface border-b border-outline-variant/30">
+              <th className="p-2.5 border-r border-outline-variant/30 font-bold uppercase tracking-wider text-[11px] text-center w-16 bg-surface-container-highest">
                 Day
               </th>
               {Array.from({ length: 6 }).map((_, i) => (
-                <th key={`sm-head-am-${i}`} className="p-2 border-r border-slate-300 dark:border-slate-700 text-center font-mono text-[10px]">
-                  <div className="font-bold text-slate-800 dark:text-slate-200">Slot {i + 1}</div>
-                  <div className="text-[8px] text-slate-500 font-normal mt-0.5">{SLOT_TIME_LABELS[i].split(' ')[0]}</div>
+                <th key={`sm-head-am-${i}`} className="p-1.5 border-r border-outline-variant/30 text-center font-mono text-[9px]">
+                  <div className="font-bold text-on-surface">Slot {i + 1}</div>
+                  <div className="text-[8px] text-on-surface-variant font-normal mt-0.5">{SLOT_TIME_LABELS[i].split(' ')[0]}</div>
                 </th>
               ))}
-              <th className="p-2 border-r border-slate-300 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 bg-slate-200/80 dark:bg-slate-800 text-center w-16 uppercase tracking-widest text-[9px] [writing-mode:vertical-lr] rotate-180">
-                Lunch Break
+              <th className="p-1.5 border-r border-outline-variant/30 font-bold text-on-surface-variant bg-surface-container-highest text-center w-12 uppercase tracking-widest text-[8px] [writing-mode:vertical-lr] rotate-180">
+                Lunch
               </th>
               {Array.from({ length: 6 }).map((_, i) => (
-                <th key={`sm-head-pm-${i}`} className="p-2 border-r border-slate-300 dark:border-slate-700 text-center font-mono text-[10px]">
-                  <div className="font-bold text-slate-800 dark:text-slate-200">Slot {i + 7}</div>
-                  <div className="text-[8px] text-slate-500 font-normal mt-0.5">{SLOT_TIME_LABELS[i + 6].split(' ')[0]}</div>
+                <th key={`sm-head-pm-${i}`} className="p-1.5 border-r border-outline-variant/30 text-center font-mono text-[9px]">
+                  <div className="font-bold text-on-surface">Slot {i + 7}</div>
+                  <div className="text-[8px] text-on-surface-variant font-normal mt-0.5">{SLOT_TIME_LABELS[i + 6].split(' ')[0]}</div>
                 </th>
               ))}
             </tr>
@@ -595,8 +595,8 @@ export const Scheduler = () => {
 
           <tbody>
             {VIT_TIMETABLE.days.map((dayObj, dayIdx) => (
-              <tr key={`sm-row-${dayObj.name}`} className="border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                <td className="px-3 py-3 border-r border-slate-300 dark:border-slate-700 font-bold text-center text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+              <tr key={`sm-row-${dayObj.name}`} className="border-b border-outline-variant/20 hover:bg-surface-container-low transition-colors">
+                <td className="px-2.5 py-2.5 border-r border-outline-variant/30 font-bold text-center text-xs bg-surface-container-highest text-on-surface uppercase tracking-wide">
                   {dayObj.name}
                 </td>
 
@@ -606,30 +606,30 @@ export const Scheduler = () => {
                   const stats = getCellStats(dayIdx, slotIdx)
                   const isSelected = selectedAnalysisCell?.dayIndex === dayIdx && selectedAnalysisCell?.slotIndex === slotIdx
 
-                  let heatClass = 'bg-rose-100 text-rose-900 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                  let heatClass = 'bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 border-rose-500/10'
                   if (stats.ratio === 1.0) {
-                    heatClass = 'bg-emerald-200 text-emerald-950 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold'
+                    heatClass = 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/20 font-bold'
                   } else if (stats.ratio >= 0.75) {
-                    heatClass = 'bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    heatClass = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/10'
                   } else if (stats.ratio >= 0.5) {
-                    heatClass = 'bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                    heatClass = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border-amber-500/10'
                   }
 
                   return (
-                    <td key={`sm-cell-${dayIdx}-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                    <td key={`sm-cell-${dayIdx}-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                       <button
                         onClick={() => setSelectedAnalysisCell({ dayIndex: dayIdx, slotIndex: slotIdx })}
-                        className={`w-full h-full py-3 px-1.5 flex flex-col items-center justify-center transition-all ${heatClass} ${isSelected ? 'ring-2 ring-indigo-500 z-10' : ''}`}
+                        className={`w-full h-full py-2 px-1 flex flex-col items-center justify-center transition-all ${heatClass} ${isSelected ? 'ring-2 ring-primary ring-offset-1 ring-offset-surface z-10' : ''}`}
                       >
-                        <span className="font-mono font-bold text-xs">{stats.freeCount} / {teamMembers.length}</span>
-                        <span className="text-[8px] uppercase tracking-wider font-mono opacity-80 mt-0.5">Free</span>
+                        <span className="font-mono font-bold text-[10px]">{stats.freeCount} / {teamMembers.length}</span>
+                        <span className="text-[7px] uppercase tracking-wider font-mono opacity-80 mt-0.5">Free</span>
                       </button>
                     </td>
                   )
                 })}
 
                 {/* Lunch Cell */}
-                <td className="border-r border-slate-300 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 font-mono text-[9px] text-center" />
+                <td className="border-r border-outline-variant/30 bg-surface-container-high/50 text-on-surface-variant/40 font-mono text-[9px] text-center" />
 
                 {/* 6 Afternoon Slots */}
                 {Array.from({ length: 6 }).map((_, slotOffset) => {
@@ -637,23 +637,23 @@ export const Scheduler = () => {
                   const stats = getCellStats(dayIdx, slotIdx)
                   const isSelected = selectedAnalysisCell?.dayIndex === dayIdx && selectedAnalysisCell?.slotIndex === slotIdx
 
-                  let heatClass = 'bg-rose-100 text-rose-900 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                  let heatClass = 'bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/15 border-rose-500/10'
                   if (stats.ratio === 1.0) {
-                    heatClass = 'bg-emerald-200 text-emerald-950 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold'
+                    heatClass = 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/20 font-bold'
                   } else if (stats.ratio >= 0.75) {
-                    heatClass = 'bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    heatClass = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/10'
                   } else if (stats.ratio >= 0.5) {
-                    heatClass = 'bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                    heatClass = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border-amber-500/10'
                   }
 
                   return (
-                    <td key={`sm-cell-${dayIdx}-${slotIdx}`} className="p-0 border-r border-slate-200 dark:border-slate-800 text-center">
+                    <td key={`sm-cell-${dayIdx}-${slotIdx}`} className="p-0 border-r border-outline-variant/20 text-center">
                       <button
                         onClick={() => setSelectedAnalysisCell({ dayIndex: dayIdx, slotIndex: slotIdx })}
-                        className={`w-full h-full py-3 px-1.5 flex flex-col items-center justify-center transition-all ${heatClass} ${isSelected ? 'ring-2 ring-indigo-500 z-10' : ''}`}
+                        className={`w-full h-full py-2 px-1 flex flex-col items-center justify-center transition-all ${heatClass} ${isSelected ? 'ring-2 ring-primary ring-offset-1 ring-offset-surface z-10' : ''}`}
                       >
-                        <span className="font-mono font-bold text-xs">{stats.freeCount} / {teamMembers.length}</span>
-                        <span className="text-[8px] uppercase tracking-wider font-mono opacity-80 mt-0.5">Free</span>
+                        <span className="font-mono font-bold text-[10px]">{stats.freeCount} / {teamMembers.length}</span>
+                        <span className="text-[7px] uppercase tracking-wider font-mono opacity-80 mt-0.5">Free</span>
                       </button>
                     </td>
                   )
@@ -667,9 +667,9 @@ export const Scheduler = () => {
   }
 
   return (
-    <main className="flex-1 px-6 md:px-12 pt-24 pb-12 max-w-7xl mx-auto w-full">
+    <main className="flex-1 px-6 md:px-12 pt-20 pb-4 max-w-7xl mx-auto w-full">
       {/* Header Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-3xl font-bold tracking-tight text-on-surface">Time Allocator</h2>
@@ -681,7 +681,7 @@ export const Scheduler = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-2 border-b border-outline-variant mb-8 pb-px overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 border-b border-outline-variant mb-4 pb-px overflow-x-auto no-scrollbar">
         <button 
           onClick={() => setActiveTab('my-timetable')}
           className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 ${
@@ -733,8 +733,8 @@ export const Scheduler = () => {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            <motion.div variants={itemVariants} className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <motion.div variants={itemVariants} className="bg-surface-container rounded-2xl border border-outline-variant p-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-bold text-on-surface">
@@ -805,7 +805,7 @@ export const Scheduler = () => {
               {renderMyTimetableMatrix()}
 
               {/* Legend */}
-              <div className="mt-5 flex flex-wrap gap-6 text-xs text-on-surface-variant justify-center sm:justify-start pt-2 border-t border-outline-variant/40">
+              <div className="mt-3 flex flex-wrap gap-4 text-xs text-on-surface-variant justify-center sm:justify-start pt-2 border-t border-outline-variant/40">
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded bg-[#fef9c3] border border-amber-300 shadow-sm" />
                   <span>Free slot</span>

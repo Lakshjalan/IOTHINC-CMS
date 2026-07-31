@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useProgress } from '../hooks/useProgress'
+import { useAuth } from '../hooks/useAuth'
+import { useContributions } from '../hooks/useContributions'
 import { sanitizeUUID } from '../utils/sanitize'
 
 export const ProgressTrackerMember = () => {
+  const { user } = useAuth()
   const [searchParams] = useSearchParams()
-  // Validate that member_id is a proper UUID before using it in any DB filter.
-  // An invalid/tampered value is treated as null, defaulting to the current user.
   const memberId = sanitizeUUID(searchParams.get('member_id'))
-  const { tasks, loading, avgProgress, markTaskDone, updateProgress } = useProgress(memberId)
+  const effectiveMemberId = memberId || user?.id
+
+  const { tasks, loading, avgProgress, markTaskDone, updateProgress } = useProgress(effectiveMemberId)
+  const { contributions, loading: contrLoading, deleteContribution } = useContributions({ memberId: effectiveMemberId })
   const [editingTask, setEditingTask] = useState(null)
   const [progressInput, setProgressInput] = useState('')
 
@@ -131,6 +135,73 @@ export const ProgressTrackerMember = () => {
           </div>
         </div>
       )}
+
+      {/* Contributions Section */}
+      <div className="mt-12 pt-8 border-t border-outline-variant/30">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="font-headline-lg text-lg font-bold text-on-surface">Logged Contributions</h3>
+            <p className="text-xs text-on-surface-variant mt-1">Project work, research publications, and club contributions.</p>
+          </div>
+          {(!memberId || memberId === user?.id) && (
+            <Link 
+              to="/contributions/new" 
+              className="flex items-center gap-2 bg-primary text-on-primary font-bold font-label-caps text-xs uppercase px-4 py-2.5 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>Log Contribution
+            </Link>
+          )}
+        </div>
+
+        {contrLoading ? (
+          <div className="p-8 text-center">
+            <svg className="animate-spin h-6 w-6 text-primary mx-auto" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"/>
+            </svg>
+          </div>
+        ) : contributions.length === 0 ? (
+          <div className="bg-surface-container rounded-xl border border-outline-variant p-8 text-center text-on-surface-variant italic text-sm">
+            No logged contributions.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {contributions.map(c => (
+              <div key={c.id} className="bg-surface-container rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col">
+                {c.photo_url && <img src={c.photo_url} alt={c.title} className="w-full h-36 object-cover"/>}
+                <div className="p-4 flex flex-col flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-bold text-sm text-on-surface line-clamp-2 flex-1">{c.title}</h4>
+                    {c.flagged && (
+                      <span className="text-[9px] font-bold font-label-caps uppercase px-1.5 py-0.5 rounded bg-error/20 text-error shrink-0 ml-2">
+                        Flagged
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3 flex-1 mb-3">{c.description}</p>
+                  <div className="flex flex-wrap gap-1 text-[9px] text-outline font-label-caps uppercase mb-3">
+                    {c.project_name && <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded">{c.project_name}</span>}
+                    {c.event_name && <span className="bg-success/10 text-success px-1.5 py-0.5 rounded">{c.event_name}</span>}
+                    <span className="bg-surface-container-high px-1.5 py-0.5 rounded">{c.visibility}</span>
+                  </div>
+                  {/* Delete option if it belongs to current user */}
+                  {c.member_id === user?.id && (
+                    <div className="flex justify-end pt-2 border-t border-outline-variant/30">
+                      <button 
+                        onClick={() => { if (confirm('Remove this contribution?')) deleteContribution(c.id) }} 
+                        className="text-error hover:bg-error/10 p-1.5 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   )
 }

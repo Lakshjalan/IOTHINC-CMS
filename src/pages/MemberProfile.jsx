@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { getOptimizedImageUrl } from '../utils/imageOptimizer'
+import { useAvatarUpload } from '../lib/unifiedStorage'
 
 export const MemberProfile = () => {
   const { id } = useParams()
@@ -28,7 +29,8 @@ export const MemberProfile = () => {
     github_url: '',
     linkedin_url: '',
     avatar_url: '',
-    role: 'member'
+    role: 'member',
+    member_tag: ''
   })
 
   const isOwnProfile = currentUser?.id === id
@@ -55,7 +57,8 @@ export const MemberProfile = () => {
         github_url: prof.github_url || '',
         linkedin_url: prof.linkedin_url || '',
         avatar_url: prof.avatar_url || '',
-        role: prof.role || 'member'
+        role: prof.role || 'member',
+        member_tag: prof.member_tag || ''
       })
 
       document.title = `${prof.full_name} | IOTHINC`
@@ -117,7 +120,8 @@ export const MemberProfile = () => {
           skills: skillsArray,
           github_url: editForm.github_url,
           linkedin_url: editForm.linkedin_url,
-          ...((currentRole === 'chairperson' || currentRole === 'vice_chairperson') && { role: editForm.role })
+          ...((currentRole === 'chairperson' || currentRole === 'vice_chairperson') && { role: editForm.role }),
+          ...((currentRole === 'chairperson') && { member_tag: editForm.member_tag })
         })
         .eq('id', id)
 
@@ -130,41 +134,15 @@ export const MemberProfile = () => {
     }
   }
 
+  const uploadAvatar = useAvatarUpload()
+
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
 
     try {
-      let publicUrl = null
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-
-      // Unsigned upload directly to Cloudinary (25 GB free quota & auto WebP format)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('upload_preset', 'ml_default') // Fallback to standard Cloudinary upload
-
-      const cldRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (cldRes.ok) {
-        const cldData = await cldRes.json()
-        publicUrl = cldData.secure_url
-      } else {
-        // Fallback to Supabase Avatars Bucket
-        const filePath = `${id}/avatar`
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, { upsert: true })
-
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl: supaUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath)
-        publicUrl = supaUrl
-      }
+      const result = await uploadAvatar(file, id)
+      const publicUrl = result.url
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -217,7 +195,11 @@ export const MemberProfile = () => {
           <div className="flex flex-col md:flex-row md:items-center gap-3 justify-center md:justify-start">
             <h2 className="font-headline-xl text-3xl text-on-surface leading-tight font-bold">{member?.full_name}</h2>
             <span className={`w-fit mx-auto md:mx-0 text-xs font-bold font-label-caps px-2.5 py-1 rounded-full uppercase ${(member?.role === 'chairperson' || member?.role === 'vice_chairperson') ? 'bg-red-500/20 text-red-400' : member?.role === 'department_lead' ? 'bg-amber-400/20 text-amber-300' : 'bg-primary/20 text-primary'}`}>
-              {member?.role}
+              {member?.role === 'department_lead' || member?.role === 'vice_chairperson' ? (
+            member?.member_tag || 'No Tag'
+          ) : (
+            member?.role
+          )}
             </span>
           </div>
           
@@ -329,20 +311,23 @@ export const MemberProfile = () => {
                   />
                 </div>
               </div>
-              {(currentRole === 'chairperson' || currentRole === 'vice_chairperson') && (
-                <div>
-                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Role (Admin Only)</label>
-                  <select 
-                    value={editForm.role}
-                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                    className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
-                  >
-                    <option value="member">Member</option>
-                    <option value="coordinator">Coordinator</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
+             {(currentRole === 'chairperson' || currentRole === 'vice_chairperson') && (
+                <>
+                  <div>
+                    <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Role (Admin Only)</label>
+                    <select
+                      value={editForm.role}
+                      onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                      className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
+                    >
+                      <option value="member">Member</option>
+                      <option value="coordinator">Coordinator</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </>
               )}
+              
               <div>
                 <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Bio</label>
                 <textarea 

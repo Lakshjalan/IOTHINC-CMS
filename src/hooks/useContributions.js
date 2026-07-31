@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 import { sanitizeName, sanitizeText, sanitizeUrl, sanitizeStringArray, sanitizeEnum } from '../utils/sanitize'
+import { useContributionPhotoUpload } from '../lib/unifiedStorage'
 
 export const useContributions = (filters = {}) => {
   const { user, role } = useAuth()
@@ -63,52 +64,13 @@ export const useContributions = (filters = {}) => {
     fetchContributions()
   }, [fetchContributions])
 
-  // Image Upload helper (Cloudinary Primary -> Supabase Fallback)
-  const uploadPhoto = async (file) => {
-    if (!user) throw new Error('User must be logged in')
-
-    try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('upload_preset', 'ml_default')
-
-      const cldRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (cldRes.ok) {
-        const cldData = await cldRes.json()
-        return cldData.secure_url
-      }
-
-      throw new Error('Cloudinary upload unsuccessful')
-    } catch (cldErr) {
-      // Fallback to Supabase Storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('contribution-photos')
-        .upload(filePath, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('contribution-photos')
-        .getPublicUrl(filePath)
-
-      return publicUrl
-    }
-  }
+  const uploadPhoto = useContributionPhotoUpload()
 
   const addContribution = async (contributionData, file) => {
     let photoUrl = contributionData.photo_url || null
     if (file) {
-      photoUrl = await uploadPhoto(file)
+      const result = await uploadPhoto(file, user?.id)
+      photoUrl = result.url
     }
 
     // Sanitize all free-text fields before persisting

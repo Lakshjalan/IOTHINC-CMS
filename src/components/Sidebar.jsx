@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { logError } from '../utils/logger'
 import { supabase } from '../supabaseClient'
 import { motion } from 'motion/react'
 import { IothincLogo } from '../assets/IothincLogo'
@@ -29,7 +30,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
     '/tasks'
   ].some(path => currentPath.startsWith(path))
 
-  const reportsPath = (['chairperson', 'vice_chairperson', 'department_lead'].includes(role)) ? '/progress/admin' : '/progress'
+  const reportsPath = (['chairperson', 'vice_chairperson', 'department_lead', 'electrical_lead', 'software_lead', 'general_secretary'].includes(role)) ? '/progress/admin' : '/progress'
 
   const handleCreateProject = async (e) => {
     e.preventDefault()
@@ -57,7 +58,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
       alert('Project created successfully!')
       window.location.reload()
     } catch (err) {
-      console.error(err)
+      logError(err)
       setCreateError(err.message)
     } finally {
       setCreating(false)
@@ -67,7 +68,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
     { name: 'Members', path: '/members', icon: 'group' },
-    { name: 'Projects', path: '/projects', icon: 'account_tree' },
+    { name: 'Projects', path: '/projects', icon: 'rocket_launch' },
     { name: 'Departments', path: '/teams', icon: 'corporate_fare' },
     { name: 'Competitions', path: '/competitions', icon: 'emoji_events' },
     { name: 'Events', path: '/events', icon: 'event_available' },
@@ -75,14 +76,20 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
     { name: 'Chat', path: '/chat', icon: 'chat' },
     { name: 'Meetings', path: '/meetings', icon: 'calendar_month' },
     { name: 'Scheduler', path: '/scheduler', icon: 'edit_calendar' },
+    { name: 'Learn', path: '/learn', icon: 'school' },
+    { name: 'Reports', path: reportsPath, icon: 'assessment' },
+    {
+      name: 'Storage Monitor',
+      path: '/storage',
+      icon: 'storage',
+      isChairOnly: true
+    },
     {
       name: 'Admin Panel',
       path: '/admin',
       icon: 'admin_panel_settings',
       isAdminOnly: true
-    },
-    { name: 'Learn', path: '/learn', icon: 'school' },
-    { name: 'Reports', path: reportsPath, icon: 'assessment' }
+    }
   ]
 
   return (
@@ -111,7 +118,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
               <div className="flex-1 flex justify-center items-center -ml-2">
                 <IothincLogo
                   alt="IOTHINC Logo"
-                  className="block w-[200px] h-16 text-on-surface"
+                  className="block w-[155px] h-auto text-on-surface"
                 />
               </div>
             )}
@@ -131,8 +138,12 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
 
         {/* Navigation items */}
         <div className="flex-1 overflow-y-auto px-2 space-y-1 no-scrollbar">
-          {navItems.filter(item => !(item.isAdminOnly && role === 'member')).map((item, index) => {
-            const isRoleAdmin = (role === 'chairperson' || role === 'vice_chairperson' || role === 'department_lead')
+          {navItems.filter(item => {
+            if (item.isAdminOnly && role === 'member') return false
+            if (item.isChairOnly && !['chairperson', 'vice_chairperson'].includes(role)) return false
+            return true
+          }).map((item, index) => {
+            const isRoleAdmin = (role === 'chairperson' || role === 'vice_chairperson' || role === 'department_lead' || role === 'electrical_lead' || role === 'software_lead' || role === 'general_secretary')
             const isLocked = item.isAdminOnly && !isRoleAdmin
             const isActive = currentPath === item.path
 
@@ -200,7 +211,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
             to="/leadership"
             title={collapsed ? 'Leadership' : undefined}
           >
-            <span className="material-symbols-outlined">group_star</span>
+            <span className="material-symbols-outlined">shield_person</span>
             {!collapsed && (
               <span className="font-label-caps text-label-caps uppercase">Leadership</span>
             )}

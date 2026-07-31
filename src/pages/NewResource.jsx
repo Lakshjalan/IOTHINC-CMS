@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
+import { useLearningResourceUpload } from '../lib/unifiedStorage'
 
 export const NewResource = () => {
   const { user, role } = useAuth()
@@ -95,46 +96,21 @@ export const NewResource = () => {
     return 'attach_file'
   }
 
+  const uploadResource = useLearningResourceUpload()
+
   const uploadFile = async (f) => {
     setUploading(true)
     setUploadProgress(20)
 
     try {
-      // Direct high-speed CDN upload via Uploadthing (2 GB free allocation)
-      const { uploadFiles } = await import('../uploadthingClient')
-      setUploadProgress(50)
-
-      const res = await uploadFiles('default', { files: [f] })
+      const result = await uploadResource(f, user?.id)
       setUploadProgress(100)
       setUploading(false)
-      if (res && res[0]) {
-        return res[0].url
-      }
-      throw new Error('Upload failed')
+      return result.url
     } catch (err) {
-      // Fallback to Supabase Storage if Uploadthing token is unavailable or fails
-      try {
-        const timestamp = Date.now()
-        const safeFileName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const filePath = `${user.id}/${timestamp}_${safeFileName}`
-
-        const { error: uploadErr } = await supabase.storage
-          .from('learning-resources')
-          .upload(filePath, f, { cacheControl: '3600', upsert: false })
-
-        if (uploadErr) throw uploadErr
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('learning-resources')
-          .getPublicUrl(filePath)
-
-        setUploading(false)
-        return publicUrl
-      } catch (fallbackErr) {
-        setUploading(false)
-        setUploadProgress(0)
-        throw fallbackErr
-      }
+      setUploading(false)
+      setUploadProgress(0)
+      throw err
     }
   }
 

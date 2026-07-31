@@ -1,4 +1,5 @@
 import React from 'react'
+import { logError } from '../utils/logger'
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -11,7 +12,7 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("Uncaught React Error:", error, errorInfo)
+    logError(error); // Forward to server-side logging
     this.setState({ errorInfo })
   }
 
@@ -23,7 +24,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0A0A0C] text-white flex flex-col items-center justify-center p-6 select-none relative overflow-hidden">
+        <div className="min-h-screen bg-[#0A0A0C] text-white flex flex-col items-center justify-center p-6 select-none relative overflow-hidden premium-glow">
           {/* Ambient Glows */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/10 blur-[140px] rounded-full pointer-events-none"></div>
 

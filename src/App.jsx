@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 
 /* Layout components — kept eager as they appear on every authenticated page */
@@ -43,6 +43,7 @@ const Chat           = lazy(() => import('./pages/Chat').then(m => ({ default: m
 const Leadership     = lazy(() => import('./pages/Leadership').then(m => ({ default: m.Leadership })))
 const Meetings       = lazy(() => import('./pages/Meetings').then(m => ({ default: m.Meetings })))
 const Scheduler      = lazy(() => import('./pages/Scheduler').then(m => ({ default: m.Scheduler })))
+const StorageDashboard = lazy(() => import('./pages/StorageDashboard').then(m => ({ default: m.StorageDashboard })))
 
 import { motion } from 'motion/react'
 
@@ -110,6 +111,21 @@ const Page = ({ children, allowedRoles }) => {
   )
 }
 
+const ContributionsRedirect = () => {
+  const { role } = useAuth()
+  const [searchParams] = useSearchParams()
+  const isAdmin = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  return (
+    <Navigate 
+      to={isAdmin 
+        ? `/progress/admin?${searchParams.toString()}` 
+        : `/progress?${searchParams.toString()}`
+      } 
+      replace 
+    />
+  )
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth()
 
@@ -138,19 +154,20 @@ function AppRoutes() {
       <Route path="/projects"           element={<Page><Projects /></Page>} />
       <Route path="/projects/:id"       element={<Page><ProjectDetail /></Page>} />
       <Route path="/teams"              element={<Page><Teams /></Page>} />
-      <Route path="/teams/new"          element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
+      <Route path="/teams/new" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
       <Route path="/events"             element={<Page><Events /></Page>} />
       <Route path="/events/:id"         element={<Page><EventDetail /></Page>} />
       <Route path="/competitions"       element={<Page><Competitions /></Page>} />
-      <Route path="/competitions/host"  element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
+      <Route path="/competitions/host" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
       <Route path="/tasks"              element={<Page><Tasks /></Page>} />
       <Route path="/learn"              element={<Page><Learn /></Page>} />
-      <Route path="/learn/new"          element={<Page allowedRoles={['chairperson','vice_chairperson']}><NewResource /></Page>} />
-      <Route path="/contributions"      element={<Page><Contributions /></Page>} />
+      <Route path="/learn/new"          element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><NewResource /></Page>} />
+      <Route path="/contributions"      element={<ContributionsRedirect />} />
       <Route path="/contributions/new"  element={<Page><NewContribution /></Page>} />
       <Route path="/progress"           element={<Page><ProgressTrackerMember /></Page>} />
-      <Route path="/progress/admin"     element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
-      <Route path="/admin"              element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
+      <Route path="/progress/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
+      <Route path="/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
+      <Route path="/storage" element={<Page allowedRoles={['chairperson','vice_chairperson']}><StorageDashboard /></Page>} />
       <Route path="/chat"               element={<Page><Chat /></Page>} />
       <Route path="/leadership"         element={<Page><Leadership /></Page>} />
       <Route path="/meetings"           element={<Page><Meetings /></Page>} />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { logError } from '../utils/logger'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { useTheme } from '../context/ThemeContext'
@@ -41,7 +42,7 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
       if (error) throw error
       setNotifications(data || [])
     } catch (err) {
-      console.error('Error fetching notifications:', err)
+      logError(err)
     }
   }
 
@@ -78,7 +79,7 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
           teams: teams || []
         })
       } catch (err) {
-        console.error('Search error:', err)
+        logError(err)
       } finally {
         setIsSearching(false)
       }
@@ -213,7 +214,7 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
         </button>
         <IothincLogo
           alt="IOTHINC Logo"
-          className="h-14 w-[160px] text-on-surface"
+          className="h-10 w-auto text-on-surface"
         />
       </div>
 

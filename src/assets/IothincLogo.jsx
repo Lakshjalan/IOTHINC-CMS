@@ -8,9 +8,9 @@ import React from 'react'
 export const IothincLogo = ({ className, style, alt, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 1900 1500"
-    width="1000%"
-    height="200%"
+    viewBox="80 630 1740 740"
+    width="100%"
+    height="100%"
     className={className}
     style={style}
     aria-label={alt ?? 'IOTHINC Logo'}

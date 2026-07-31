@@ -32,7 +32,7 @@ export const Chat = () => {
     const fetchMembers = async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, role')
+        .select('id, full_name, avatar_url, role, department')
         .neq('id', user?.id)
         .order('full_name')
       setMembers(data || [])
@@ -70,13 +70,15 @@ export const Chat = () => {
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState()
-        // Extract all active user IDs
-        const onlineIds = Object.keys(state)
+        // Each presence entry has the payload we tracked: { user_id, department }
+        const allPresences = Object.values(state).flat()
+        const onlineIds = allPresences.map(p => p.user_id).filter(Boolean)
         setOnlineUsers(onlineIds)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await presenceChannel.track({
+            user_id: user.id,
             online_at: new Date().toISOString()
           })
         }
@@ -91,11 +93,25 @@ export const Chat = () => {
   const activeMembers = onlineUsers
     .map(id => {
       if (id === user?.id) {
-        return { id, full_name: 'You', avatar_url: profile?.avatar_url, role: profile?.role, isSelf: true }
+        return { id, full_name: 'You', avatar_url: profile?.avatar_url, role: profile?.role, department: profile?.department, isSelf: true }
       }
       return members.find(m => m.id === id)
     })
     .filter(Boolean)
+
+  // Count helpers — derived from local members state, NOT from presence payload
+  const globalOnlineCount = activeMembers.length
+
+  const getDeptOnlineCount = (dept) => {
+    // Match by dept.department field (the department name stored on the team/dept object)
+    return activeMembers.filter(m => {
+      const memberDept = m.department // from profiles fetch
+      const channelDept = dept.department || dept.name
+      return memberDept && channelDept && memberDept === channelDept
+    }).length
+  }
+
+  const isDMOnline = (memberId) => onlineUsers.includes(memberId)
 
   // Scroll to bottom when messages arrive
   useEffect(() => {
@@ -115,13 +131,20 @@ export const Chat = () => {
 
   const getChatHeader = () => {
     if (activeChat.type === 'lobby') {
-      return { title: 'Global Lobby', subtitle: 'Chat with everyone in IOTHINC', icon: 'public' }
+      return {
+        title: 'Global Lobby',
+        subtitle: `Chat with everyone in IOTHINC`,
+        icon: 'public',
+        onlineCount: globalOnlineCount
+      }
     }
     if (activeChat.type === 'department') {
+      const deptOnline = getDeptOnlineCount(activeChat.data)
       return {
         title: activeChat.data.name,
         subtitle: `${activeChat.data.memberCount ?? ''} members · Department Channel`,
-        icon: 'corporate_fare'
+        icon: 'corporate_fare',
+        onlineCount: deptOnline
       }
     }
     if (activeChat.type === 'event_team') {
@@ -132,9 +155,11 @@ export const Chat = () => {
       }
     }
     // DM
+    const isOtherOnline = isDMOnline(activeChat.data?.id)
     return {
       title: activeChat.data.full_name,
-      subtitle: activeChat.data.role,
+      subtitle: isOtherOnline ? 'Active now' : activeChat.data.role,
+      isOnline: isOtherOnline,
       avatar: activeChat.data.avatar_url ||
         `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeChat.data.full_name)}`
     }
@@ -151,6 +176,70 @@ export const Chat = () => {
     `w-8 h-8 rounded-lg flex items-center justify-center ${
       active ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface'
     }`
+
+  // State for AI Chat Summarizer
+  const [summarizing, setSummarizing] = useState(false)
+  const [summaryResult, setSummaryResult] = useState(null)
+  const [summaryError, setSummaryError] = useState(null)
+  const [showSummaryModal, setShowSummaryModal] = useState(false)
+  const [remainingUses, setRemainingUses] = useState(null)
+
+  // Current room identifier
+  const currentRoomId = activeChat.type === 'lobby'
+    ? 'lobby'
+    : activeChat.type === 'dm'
+    ? `dm_${[user?.id, activeChat.data?.id].sort().join('_')}`
+    : `${activeChat.type}_${activeChat.data?.id}`
+
+  // Calculate hours remaining until midnight (00:00 UTC / next day reset)
+  const getHoursUntilReset = () => {
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setUTCHours(24, 0, 0, 0)
+    const diffMs = tomorrow.getTime() - now.getTime()
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60))
+    return diffHours
+  }
+
+  const hoursUntilReset = getHoursUntilReset()
+
+  const handleSummarize = async () => {
+    setSummarizing(true)
+    setSummaryError(null)
+    setSummaryResult(null)
+    setShowSummaryModal(true)
+
+    try {
+      const { data, error } = await supabase.functions.invoke('summarize-chat', {
+        body: {
+          room_id: currentRoomId,
+          receiver_id: receiverId,
+          team_id: teamId,
+          limit: 50
+        }
+      })
+
+      if (error) {
+        let msg = error.message || 'Failed to generate summary'
+        if (error.status === 429) {
+          msg = `Daily limit reached (0/2 summaries remaining). Your limit will refresh in ${hoursUntilReset} ${hoursUntilReset === 1 ? 'hour' : 'hours'} at midnight.`
+          setRemainingUses(0)
+        }
+        setSummaryError(msg)
+      } else if (data?.error) {
+        setSummaryError(data.error)
+      } else {
+        setSummaryResult(data.summary)
+        if (data?.remaining !== undefined) {
+          setRemainingUses(data.remaining)
+        }
+      }
+    } catch (err) {
+      setSummaryError(err.message || 'An unexpected error occurred while generating summary.')
+    } finally {
+      setSummarizing(false)
+    }
+  }
 
   return (
     <main className="flex-1 flex flex-col md:flex-row h-screen pt-16 animate-in fade-in duration-200">
@@ -323,22 +412,95 @@ export const Chat = () => {
 
       {/* ── Main Chat Area ─────────────────────────────────── */}
       <section className="flex-1 flex flex-col h-[calc(100vh-64px)] bg-background relative">
-        {/* Chat Header */}
         <header className="h-16 border-b border-outline-variant bg-surface-container-lowest flex items-center px-6 shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             {headerInfo.icon ? (
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <span className="material-symbols-outlined text-primary text-2xl">{headerInfo.icon}</span>
               </div>
             ) : (
-              <img src={headerInfo.avatar} alt="" className="w-10 h-10 rounded-full border border-outline-variant object-cover"/>
+              <div className="relative shrink-0">
+                <img src={headerInfo.avatar} alt="" className="w-10 h-10 rounded-full border border-outline-variant object-cover"/>
+                {headerInfo.isOnline && (
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full ring-2 ring-surface-container-lowest" />
+                )}
+              </div>
             )}
             <div>
               <h2 className="font-bold text-on-surface text-base leading-none mb-1">{headerInfo.title}</h2>
-              <p className="text-[11px] text-on-surface-variant uppercase font-label-caps">{headerInfo.subtitle}</p>
+              <p className={`text-[11px] uppercase font-label-caps ${
+                headerInfo.isOnline ? 'text-green-500' : 'text-on-surface-variant'
+              }`}>{headerInfo.subtitle}</p>
+            </div>
+            {/* Online count badge & Summarize AI Button */}
+            <div className="ml-auto flex items-center gap-3">
+              {headerInfo.onlineCount !== undefined && (
+                <div className="hidden sm:flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <span className="text-xs font-bold text-on-surface">{headerInfo.onlineCount}</span>
+                  <span className="text-[10px] text-on-surface-variant font-label-caps uppercase">online</span>
+                </div>
+              )}
+
+              <button
+                onClick={handleSummarize}
+                disabled={summarizing}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-xs font-semibold"
+              >
+                <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                <span>{summarizing ? 'Summarizing...' : 'Summarize'}</span>
+              </button>
             </div>
           </div>
         </header>
+
+        {/* AI Summary Top Banner / Side Panel */}
+        {showSummaryModal && (
+          <div className="bg-surface-container-high border-b border-outline-variant p-4 transition-all animate-in slide-in-from-top-4 duration-300 shadow-md">
+            <div className="max-w-4xl mx-auto flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                  <span className="material-symbols-outlined text-base">auto_awesome</span>
+                  <span>AI Conversation Summary (Latest 50 Messages)</span>
+                  {remainingUses !== null && (
+                    <span className="ml-2 text-[11px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-mono flex items-center gap-1">
+                      <span>{remainingUses}/2 left today</span>
+                      <span className="opacity-60">•</span>
+                      <span className="text-[10px]">resets in {hoursUntilReset}h</span>
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowSummaryModal(false)}
+                  className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              {summarizing ? (
+                <div className="flex items-center gap-3 py-2 text-xs text-on-surface-variant">
+                  <svg className="animate-spin h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                  </svg>
+                  <span className="animate-pulse font-medium">Analyzing conversation and generating summary...</span>
+                </div>
+              ) : summaryError ? (
+                <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs">
+                  <span className="font-semibold">Error: </span> {summaryError}
+                </div>
+              ) : (
+                <div className="bg-surface-container-lowest p-3.5 rounded-xl border border-outline-variant/60 text-xs text-on-surface leading-relaxed whitespace-pre-line shadow-inner">
+                  {summaryResult}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">

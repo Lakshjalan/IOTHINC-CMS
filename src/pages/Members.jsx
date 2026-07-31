@@ -223,8 +223,10 @@ export const Members = () => {
                           className="w-8 h-8 rounded-full border border-outline-variant object-cover"
                         />
                         <span className="font-semibold text-on-surface">{member.full_name}</span>
-                        <span className={`text-[10px] font-bold font-label-caps px-2 py-0.5 rounded-full uppercase ${roleBadge(member.role)}`}>
-                          {member.role}
+                        {/* Display member_tag if present, else fallback to role */}
+                        <span className={`text-[10px] font-bold font-label-caps px-2 py-0.5 rounded-full uppercase ${roleBadge(member.role)}`}
+                          >
+                          {member.member_tag ? member.member_tag : member.role}
                         </span>
                       </td>
                       <td className="p-4 text-on-surface-variant text-sm">{member.email}</td>
@@ -232,6 +234,22 @@ export const Members = () => {
                       <td className="p-4 text-center font-mono-data text-sm font-semibold">{member.contributionsCount}</td>
                       {isAdmin && (
                         <td className="p-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                          {role === 'chairperson' && (member.role === 'department_lead' || member.role === 'vice_chairperson') && (
+                            <button
+                              onClick={(e) => {
+                                const newTag = prompt('Enter tag for this member (e.g., Electrical Lead, General Secretary):', member.member_tag || '');
+                                if (newTag !== null) {
+                                  updateMember(member.id, { member_tag: newTag });
+                                  if (selectedMember?.id === member.id) setSelectedMember(prev => ({ ...prev, member_tag: newTag }));
+                                }
+                              }}
+                              title="Edit Tag"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-primary hover:bg-primary-container/20 rounded transition-colors text-xs font-bold font-label-caps uppercase"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                              Tag
+                            </button>
+                          )}
                           {/* Change Role button — the ONLY edit action. Hidden if you can't outrank this member. */}
                           {canChangeRole(member) && (
                             <button 
@@ -281,8 +299,10 @@ export const Members = () => {
                 className="w-20 h-20 rounded-full border border-outline-variant object-cover mb-4"
               />
               <h4 className="font-headline-lg text-lg text-on-surface">{selectedMember.full_name}</h4>
-              <span className={`text-[10px] font-bold font-label-caps px-3 py-1 rounded-full uppercase mt-2 ${roleBadge(selectedMember.role)}`}>
-                {selectedMember.role}
+              {/* Show tag if present, otherwise role */}
+              <span className={`text-[10px] font-bold font-label-caps px-3 py-1 rounded-full uppercase mt-2 ${roleBadge(selectedMember.role)}`}
+                >
+                {selectedMember.member_tag ? selectedMember.member_tag : selectedMember.role}
               </span>
               
               <div className="flex gap-4 mt-4">
@@ -325,6 +345,24 @@ export const Members = () => {
                 </div>
               )}
 
+              {/* Admin: Edit Tag */}
+              {role === 'chairperson' && (selectedMember.role === 'department_lead' || selectedMember.role === 'vice_chairperson') && (
+                <div className="pt-4 border-t border-outline-variant">
+                  <button
+                    onClick={(e) => {
+                      const newTag = prompt('Enter tag for this member (e.g., Electrical Lead, General Secretary):', selectedMember.member_tag || '');
+                      if (newTag !== null) {
+                        updateMember(selectedMember.id, { member_tag: newTag });
+                        setSelectedMember(prev => ({ ...prev, member_tag: newTag }));
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold font-label-caps uppercase rounded-xl transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit</span>
+                    Edit Tag
+                  </button>
+                </div>
+              )}
               {/* Admin: Quick Role Change from side panel — only if you outrank this member */}
               {isAdmin && canChangeRole(selectedMember) && (
                 <div className="pt-4 border-t border-outline-variant">

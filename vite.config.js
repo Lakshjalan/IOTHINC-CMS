@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  envPrefix: ['VITE_'], // Only VITE_ prefix is safe — avoids leaking server-side secrets
   plugins: [react()],
   server: {
     host: true,

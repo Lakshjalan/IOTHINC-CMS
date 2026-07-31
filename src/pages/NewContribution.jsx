@@ -5,7 +5,7 @@ import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
 
 export const NewContribution = () => {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { addContribution } = useContributions()
@@ -27,7 +27,7 @@ export const NewContribution = () => {
   useEffect(() => { document.title = "New Contribution | IOTHINC" }, [])
 
   useEffect(() => {
-    supabase.from('projects').select('id,name').then(r => setProjects(r.data || []))
+    supabase.from('projects').select('id,title').then(r => setProjects(r.data || []))
     supabase.from('events').select('id,title').then(r => setEvents(r.data || []))
   }, [])
 
@@ -55,7 +55,8 @@ export const NewContribution = () => {
       }
       await addContribution(contributionData, file)
       alert('Contribution added successfully!')
-      navigate('/contributions')
+      const isAdmin = role && ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+      navigate(isAdmin ? '/progress/admin' : '/progress')
     } catch (err) {
       alert('Error: ' + err.message)
     }
@@ -90,7 +91,7 @@ export const NewContribution = () => {
                 <label className="block text-xs font-label-caps text-on-surface-variant mb-1.5 uppercase">Linked Project</label>
                 <select value={form.project_id} onChange={e => setForm({...form, project_id: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm">
                   <option value="">None</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                 </select>
               </div>
               <div>

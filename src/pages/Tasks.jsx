@@ -41,7 +41,7 @@ export const Tasks = () => {
   const upcoming = [...(tasks || [])].filter(t => t.due_date && t.status !== 'completed').sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5)
 
   return (
-    <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full">
+    <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full animate-in fade-in duration-200">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="font-headline-xl text-headline-xl text-on-surface">Tasks</h2>

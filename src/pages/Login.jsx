@@ -68,13 +68,15 @@ export const Login = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 blur-[120px] rounded-full glow-pulse pointer-events-none"></div>
         
         {/* Logo */}
-        <IothincLogo
-          alt="IOTHINC Logo" 
-          className="absolute top-6 left-6 w-[220px] h-auto block z-10 text-white"
-        />
+        <div className="z-10 mb-8 md:mb-12">
+          <IothincLogo
+            alt="IOTHINC Logo" 
+            className="w-[220px] h-auto block text-white"
+          />
+        </div>
 
         {/* Content */}
-        <div className="relative z-10 max-w-md mt-16 md:mt-24">
+        <div className="relative z-10 max-w-md">
           <h1 className="font-syne font-extrabold text-4xl md:text-5xl leading-tight mb-6">
             Together we learn.<br />
             <span className="text-primary-fixed-dim">Together we build.
@@ -221,7 +223,7 @@ export const Login = () => {
               {loading ? (
                 <button className="w-full h-[48px] bg-primary/70 text-white font-bold rounded-base cursor-not-allowed flex items-center justify-center gap-3" disabled>
                   <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
                   <span>Authenticating...</span>

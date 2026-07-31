@@ -17,6 +17,7 @@ import { NotePencil } from '@phosphor-icons/react/dist/icons/NotePencil'
 import { X } from '@phosphor-icons/react/dist/icons/X'
 import { CheckCircle } from '@phosphor-icons/react/dist/icons/CheckCircle'
 import { FileCode } from '@phosphor-icons/react/dist/icons/FileCode'
+import { MapPin } from '@phosphor-icons/react/dist/icons/MapPin'
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -247,6 +248,10 @@ export const Meetings = () => {
                         <Users size={14} />
                         <span>Host: {meeting.creator?.full_name || 'Coordinator'}</span>
                       </div>
+                      <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                        {meeting.platform === 'in_person' ? <MapPin size={14} /> : <VideoCamera size={14} />}
+                        <span className="capitalize">Platform: {meeting.platform ? meeting.platform.replace('_', ' ') : 'other'}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -291,6 +296,21 @@ export const Meetings = () => {
                           className="px-3 py-1.5 border border-outline-variant text-on-surface text-xs font-mono uppercase tracking-wider rounded-lg hover:bg-surface-container-high transition-colors"
                         >
                           Go Live
+                        </button>
+                      )}
+
+                      {canSchedule && (meeting.status === 'live' || (meeting.status === 'scheduled' && new Date() >= new Date(meeting.scheduled_start))) && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateMeeting(meeting.id, { status: 'completed' })
+                            } catch (err) {
+                              alert(err.message)
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-success/20 text-success border border-success/30 text-xs font-mono uppercase tracking-wider rounded-lg hover:bg-success/30 transition-colors"
+                        >
+                          End Meeting
                         </button>
                       )}
 
@@ -347,7 +367,7 @@ export const Meetings = () => {
                         </span>
                       </div>
                       <p className="text-xs text-on-surface-variant mt-1">
-                        Held on {new Date(meeting.scheduled_start).toLocaleDateString()} · Hosted by {meeting.creator?.full_name || 'Coordinator'}
+                        Held on {new Date(meeting.scheduled_start).toLocaleDateString()} · Platform: <span className="capitalize">{meeting.platform ? meeting.platform.replace('_', ' ') : 'other'}</span> · Hosted by {meeting.creator?.full_name || 'Coordinator'}
                       </p>
                     </div>
                     
@@ -461,13 +481,13 @@ export const Meetings = () => {
   )
 }
 
-// ── Schedule Modal Subcomponent ─────────────────────────────
 const ScheduleModal = ({ onClose, onSave }) => {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [link, setLink] = useState('')
+  const [platform, setPlatform] = useState('other')
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -480,12 +500,15 @@ const ScheduleModal = ({ onClose, onSave }) => {
         scheduled_start: new Date(start).toISOString(),
         scheduled_end: new Date(end).toISOString(),
         meeting_link: link,
+        platform,
         status: 'scheduled'
       })
     } finally {
       setSubmitting(false)
     }
   }
+
+  const isUrlRequired = ['zoom', 'google_meet', 'teams'].includes(platform)
 
   return (
     <motion.div 
@@ -555,16 +578,34 @@ const ScheduleModal = ({ onClose, onSave }) => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">Meeting Link (Teams/GMeet)</label>
-            <input 
-              type="url" 
-              value={link} 
-              onChange={e => setLink(e.target.value)}
-              className="w-full bg-surface-container-low text-on-surface p-3 rounded-xl border border-outline-variant text-sm focus:ring-accent focus:outline-none focus:ring-2"
-              required 
-              placeholder="https://teams.microsoft.com/..."
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">Platform</label>
+              <select
+                value={platform}
+                onChange={e => setPlatform(e.target.value)}
+                className="w-full bg-surface-container-low text-on-surface p-3 rounded-xl border border-outline-variant text-sm focus:ring-accent focus:outline-none focus:ring-2"
+              >
+                <option value="google_meet">Google Meet</option>
+                <option value="zoom">Zoom</option>
+                <option value="teams">Microsoft Teams</option>
+                <option value="in_person">In Person</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">
+                {isUrlRequired ? 'Meeting Link' : 'Location Details / Link'}
+              </label>
+              <input 
+                type={isUrlRequired ? 'url' : 'text'} 
+                value={link} 
+                onChange={e => setLink(e.target.value)}
+                className="w-full bg-surface-container-low text-on-surface p-3 rounded-xl border border-outline-variant text-sm focus:ring-accent focus:outline-none focus:ring-2"
+                required 
+                placeholder={isUrlRequired ? 'https://meet.google.com/...' : 'e.g. Lab 102 or custom text'}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/30 mt-6">

@@ -65,9 +65,34 @@ begin
     end if;
   end if;
 
+  -- ── PRIVILEGE ESCALATION PREVENTION RULES ──
+  
+  -- 1. On INSERT:
+  if TG_OP = 'INSERT' then
+    -- Authenticated users (self-signup) must start as a member and require approval.
+    -- We allow chairperson/vice_chairperson to insert profiles with other roles.
+    if new.role <> 'member' or new.needs_approval <> true then
+      if (select coalesce(role, 'member') from public.profiles where id = auth.uid()) not in ('chairperson', 'vice_chairperson') then
+        new.role := 'member';
+        new.needs_approval := true;
+      end if;
+    end if;
+  end if;
+
+  -- 2. On UPDATE:
+  if TG_OP = 'UPDATE' then
+    -- Check if role or needs_approval status is being modified
+    if old.role IS DISTINCT FROM new.role or old.needs_approval IS DISTINCT FROM new.needs_approval then
+      -- Only chairpersons and vice_chairpersons are allowed to alter roles or approval status
+      if (select coalesce(role, 'member') from public.profiles where id = auth.uid()) not in ('chairperson', 'vice_chairperson') then
+        raise exception 'Access Denied: You do not have permission to modify roles or approval status.';
+      end if;
+    end if;
+  end if;
+
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 drop trigger if exists trg_validate_profile on public.profiles;
 create trigger trg_validate_profile

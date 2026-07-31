@@ -66,13 +66,15 @@ export const useMeetings = () => {
       supabase.removeChannel(channel)
     }
   }, [fetchMeetings])
-
   const createMeeting = async (meetingData) => {
     if (!user) throw new Error('User must be authenticated')
+    const isUrlRequired = ['zoom', 'google_meet', 'teams'].includes(meetingData.platform)
     const safeData = {
       title: sanitizeName(meetingData.title, 255),
       description: sanitizeText(meetingData.description, 5000),
-      meeting_link: sanitizeUrl(meetingData.meeting_link) || null,
+      meeting_link: isUrlRequired
+        ? (sanitizeUrl(meetingData.meeting_link) || 'https://meet.google.com')
+        : (sanitizeName(meetingData.meeting_link, 1000) || 'In-person / Other location'),
       platform: sanitizeEnum(meetingData.platform, ['zoom', 'google_meet', 'teams', 'other', 'in_person']) || 'other',
       scheduled_start: sanitizeDate(meetingData.scheduled_start),
       scheduled_end: sanitizeDate(meetingData.scheduled_end),
@@ -112,10 +114,17 @@ export const useMeetings = () => {
     const safeData = {}
     if (meetingData.title !== undefined)           safeData.title           = sanitizeName(meetingData.title, 255)
     if (meetingData.description !== undefined)     safeData.description     = sanitizeText(meetingData.description, 5000)
-    if (meetingData.meeting_link !== undefined)    safeData.meeting_link    = sanitizeUrl(meetingData.meeting_link) || null
+    if (meetingData.meeting_link !== undefined) {
+      const currentPlatform = meetingData.platform || 'other'
+      const isUrlRequired = ['zoom', 'google_meet', 'teams'].includes(currentPlatform)
+      safeData.meeting_link = isUrlRequired
+        ? (sanitizeUrl(meetingData.meeting_link) || 'https://meet.google.com')
+        : (sanitizeName(meetingData.meeting_link, 1000) || 'In-person / Other location')
+    }
     if (meetingData.platform !== undefined)        safeData.platform        = sanitizeEnum(meetingData.platform, ['zoom', 'google_meet', 'teams', 'other', 'in_person'])
     if (meetingData.scheduled_start !== undefined) safeData.scheduled_start = sanitizeDate(meetingData.scheduled_start)
     if (meetingData.scheduled_end !== undefined)   safeData.scheduled_end   = sanitizeDate(meetingData.scheduled_end)
+    if (meetingData.status !== undefined)          safeData.status          = sanitizeEnum(meetingData.status, ['scheduled', 'live', 'completed', 'cancelled'])
 
     const { data, error: err } = await supabase
       .from('meetings')
