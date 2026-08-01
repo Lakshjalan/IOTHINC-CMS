@@ -364,6 +364,28 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   const refetch = useCallback(() => executeFetch(false), [executeFetch])
   const invalidate = useCallback(() => cache.invalidate(key), [cache, key])
 
+  /**
+   * Imperative getOrFetch - for manually-triggered queries (enabled: false).
+   * Accepts dynamic arguments passed through to the fetcher, uses a dynamic
+   * cache key derived from the base key + arguments, and returns the raw data.
+   */
+  const getOrFetch = useCallback(async (...args) => {
+    const dynamicKey = args.length > 0 ? `${key}_${JSON.stringify(args)}` : key
+    try {
+      const result = await cache.getOrFetch(
+        dynamicKey,
+        () => fetcherRef.current(...args),
+        { ttl, tags }
+      )
+      return result.data
+    } catch (err) {
+      // Try to return stale data on error
+      const stale = cache.get(dynamicKey)
+      if (stale) return stale.data
+      throw err
+    }
+  }, [cache, key, ttl, tags])
+
   return {
     data,
     loading,
@@ -371,6 +393,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     isStale,
     refetch,
     invalidate,
+    getOrFetch,
     // Helper to update cache directly after mutations
     updateCache: (newData) => {
       cache.set(key, newData, { ttl, tags })

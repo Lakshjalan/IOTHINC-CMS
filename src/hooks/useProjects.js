@@ -47,12 +47,13 @@ export const useProjects = (filters = {}) => {
   const createProject = useCachedMutation(
     async (projectData) => {
       const safeData = {
-        name: sanitizeName(projectData.name, 255),
         title: sanitizeName(projectData.title, 255),
         description: sanitizeText(projectData.description, 5000),
-        status: sanitizeEnum(projectData.status, ['active', 'planning', 'completed', 'on_hold', 'cancelled']) || 'planning',
+        status: sanitizeEnum(projectData.status, ['planned', 'active', 'completed', 'blocked']) || 'planned',
         category: sanitizeName(projectData.category, 100),
-        github_link: projectData.github_link || null,
+        progress: sanitizeNumber(projectData.progress, 0, 100),
+        milestone: sanitizeName(projectData.milestone, 255) || null,
+        deadline: sanitizeDate(projectData.deadline) || null,
       }
 
       const { data, error: err } = await supabase
@@ -73,12 +74,13 @@ export const useProjects = (filters = {}) => {
   const updateProject = useCachedMutation(
     async (id, projectData) => {
       const safeData = {}
-      if (projectData.name !== undefined)        safeData.name        = sanitizeName(projectData.name, 255)
       if (projectData.title !== undefined)       safeData.title       = sanitizeName(projectData.title, 255)
       if (projectData.description !== undefined) safeData.description = sanitizeText(projectData.description, 5000)
-      if (projectData.status !== undefined)      safeData.status      = sanitizeEnum(projectData.status, ['active', 'planning', 'completed', 'on_hold', 'cancelled'])
+      if (projectData.status !== undefined)      safeData.status      = sanitizeEnum(projectData.status, ['planned', 'active', 'completed', 'blocked'])
       if (projectData.category !== undefined)    safeData.category    = sanitizeName(projectData.category, 100)
-      if (projectData.github_link !== undefined) safeData.github_link = projectData.github_link || null
+      if (projectData.progress !== undefined)    safeData.progress    = sanitizeNumber(projectData.progress, 0, 100)
+      if (projectData.milestone !== undefined)   safeData.milestone   = sanitizeName(projectData.milestone, 255) || null
+      if (projectData.deadline !== undefined)    safeData.deadline    = sanitizeDate(projectData.deadline) || null
 
       const { data, error: err } = await supabase
         .from('projects')

@@ -73,7 +73,7 @@ export const useScheduler = () => {
     async (teamId) => {
       if (!teamId) return []
       if (teamId === 'ALL') {
-        return await fetchAllSchedules()
+        return await fetchAllSchedules.getOrFetch()
       }
       try {
         const { data, error: fetchErr } = await supabase

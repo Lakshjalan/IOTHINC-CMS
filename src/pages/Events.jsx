@@ -30,6 +30,7 @@ export const Events = () => {
     try {
       const newEvent = await createEvent({ 
         ...form, 
+        location: form.venue,
         max_seats: form.max_seats ? parseInt(form.max_seats) : null, 
         event_date: new Date(form.event_date).toISOString(), 
         registration_deadline: form.registration_deadline ? new Date(form.registration_deadline).toISOString() : null 

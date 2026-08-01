@@ -56,8 +56,8 @@ export default {
         "hover-glow": "rgba(234, 179, 8, 0.2)",
       },
       fontFamily: {
-        "syne": ["Syne", "Space Grotesk", "sans-serif"],
-        "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"],
+        "syne": ["Space Grotesk", "sans-serif"],
+        "sans": ["Space Grotesk", "sans-serif"],
         "mono": ["JetBrains Mono", "monospace"],
       },
       boxShadow: {

@@ -215,9 +215,7 @@ export const GridSkeleton = ({
   variant = 'event',
   className = ''
 }) => (
-  <div className={`grid gap-6 ${className}`} style={{
-    gridTemplateColumns: `repeat(${cols.base}, 1fr)`
-  }}>
+  <div className={`grid gap-6 grid-cols-${cols.base} md:grid-cols-${cols.md} lg:grid-cols-${cols.lg} ${className}`}>
     {Array.from({ length: items }, (_, i) => (
       <CardSkeleton key={i} variant={variant} />
     ))}

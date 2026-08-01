@@ -142,6 +142,9 @@ export const useMeetings = () => {
       if (meetingData.scheduled_start !== undefined) safeData.scheduled_start = sanitizeDate(meetingData.scheduled_start)
       if (meetingData.scheduled_end !== undefined)   safeData.scheduled_end   = sanitizeDate(meetingData.scheduled_end)
       if (meetingData.status !== undefined)          safeData.status          = sanitizeEnum(meetingData.status, ['scheduled', 'live', 'completed', 'cancelled'])
+      if (meetingData.actual_duration_minutes !== undefined) safeData.actual_duration_minutes = meetingData.actual_duration_minutes ? parseInt(meetingData.actual_duration_minutes) : null
+      if (meetingData.minutes_text !== undefined)    safeData.minutes_text    = sanitizeText(meetingData.minutes_text, 10000)
+      if (meetingData.recording_url !== undefined)   safeData.recording_url   = sanitizeUrl(meetingData.recording_url) || null
 
       const { data, error: err } = await supabase
         .from('meetings')

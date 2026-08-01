@@ -15,6 +15,9 @@ const navItemVariants = {
   })
 }
 
+/* Track whether sidebar has mounted once to avoid replaying entrance animations */
+let sidebarHasMounted = false
+
 export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenuOpen }) => {
   const location = useLocation()
   const { role } = useAuth()
@@ -23,6 +26,10 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
   const [newForm, setNewForm] = useState(EMPTY_FORM)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
+
+  // Only animate sidebar nav items on first mount; skip on route changes
+  const skipInitialAnimation = sidebarHasMounted
+  React.useEffect(() => { sidebarHasMounted = true }, [])
 
   const currentPath = location.pathname
 
@@ -153,7 +160,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
                 key={item.name}
                 custom={index}
                 variants={navItemVariants}
-                initial="hidden"
+                initial={skipInitialAnimation ? false : 'hidden'}
                 animate="visible"
               >
                 <Link

@@ -134,11 +134,12 @@ export const useEvents = (statusFilter = 'All') => {
       const safeData = {
         title: sanitizeName(eventData.title, 255),
         description: sanitizeText(eventData.description, 5000),
-        location: sanitizeName(eventData.location, 255),
-        venue_link: sanitizeUrl(eventData.venue_link) || null,
+        category: sanitizeEnum(eventData.category, ['WORKSHOP', 'HACKATHON', 'SEMINAR', 'COMPETITION', 'OTHER']) || 'WORKSHOP',
+        venue: sanitizeName(eventData.venue, 255),
         status: sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled']) || 'upcoming',
         max_seats: sanitizeNumber(eventData.max_seats, 0, 10000),
         event_date: sanitizeDate(eventData.event_date),
+        registration_deadline: sanitizeDate(eventData.registration_deadline)
       }
 
       const { data, error: err } = await supabase
@@ -161,11 +162,12 @@ export const useEvents = (statusFilter = 'All') => {
       const safeData = {}
       if (eventData.title !== undefined)       safeData.title       = sanitizeName(eventData.title, 255)
       if (eventData.description !== undefined) safeData.description = sanitizeText(eventData.description, 5000)
-      if (eventData.location !== undefined)    safeData.location    = sanitizeName(eventData.location, 255)
-      if (eventData.venue_link !== undefined)  safeData.venue_link  = sanitizeUrl(eventData.venue_link) || null
+      if (eventData.category !== undefined)    safeData.category    = sanitizeEnum(eventData.category, ['WORKSHOP', 'HACKATHON', 'SEMINAR', 'COMPETITION', 'OTHER'])
+      if (eventData.venue !== undefined)       safeData.venue       = sanitizeName(eventData.venue, 255)
       if (eventData.status !== undefined)      safeData.status      = sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled'])
       if (eventData.max_seats !== undefined)   safeData.max_seats   = sanitizeNumber(eventData.max_seats, 0, 10000)
       if (eventData.event_date !== undefined)  safeData.event_date  = sanitizeDate(eventData.event_date)
+      if (eventData.registration_deadline !== undefined) safeData.registration_deadline = sanitizeDate(eventData.registration_deadline)
 
       const { data, error: err } = await supabase
         .from('events')

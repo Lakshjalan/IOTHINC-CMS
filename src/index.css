@@ -137,6 +137,11 @@ body {
   display: inline-block;
   vertical-align: middle;
   line-height: 1;
+  /* Prevent layout shifts from icon text ligatures before font loads */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  font-size: 24px;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -194,17 +199,20 @@ body {
   }
 }
 
-/* Utility animation classes */
+/* Utility animation classes — will-change promotes to compositor layer */
 .animate-slide-up {
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
 }
 
 .animate-slide-down {
   animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
 }
 
 .animate-fade-in-scale {
   animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
 }
 
 .animate-shimmer {

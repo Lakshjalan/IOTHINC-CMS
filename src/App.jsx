@@ -1,5 +1,5 @@
-import React, { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import React, { Suspense, lazy, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams, Outlet } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { CacheProvider } from './context/CacheContext'
 
@@ -7,7 +7,6 @@ import { CacheProvider } from './context/CacheContext'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { ErrorBoundary } from './components/ErrorBoundary'
 
 /* Error Pages — eager (small, needed immediately on bad routes) */
 import { NotFound } from './pages/NotFound'
@@ -46,7 +45,7 @@ const Meetings       = lazy(() => import('./pages/Meetings').then(m => ({ defaul
 const Scheduler      = lazy(() => import('./pages/Scheduler').then(m => ({ default: m.Scheduler })))
 const StorageDashboard = lazy(() => import('./pages/StorageDashboard').then(m => ({ default: m.StorageDashboard })))
 
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 
 /* Minimal page-transition skeleton shown while lazy chunk loads */
 const PageSkeleton = () => (
@@ -75,42 +74,56 @@ const AuthSplash = () => (
   </div>
 )
 
-/* Shell layout wrapping authenticated pages with sidebar + navbar */
-const AppShell = ({ children }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+/*
+ * AppShell — renders the sidebar + navbar chrome ONCE for all authenticated routes.
+ * Sidebar collapsed/mobile state is lifted here so it persists across navigations
+ * instead of resetting every time a new page mounts.
+ */
+const AppShell = () => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-[64px]' : 'md:pl-[260px]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-[padding] duration-300 ${sidebarCollapsed ? 'md:pl-[64px]' : 'md:pl-[260px]'}`}>
         <Navbar sidebarCollapsed={sidebarCollapsed} setMobileMenuOpen={setMobileMenuOpen} />
-        {children}
+        <Suspense fallback={<PageSkeleton />}>
+          <AnimatedOutlet />
+        </Suspense>
       </div>
     </div>
   )
 }
 
-/* Protect + wrap a page in the shell, with page-transition animation */
-const Page = ({ children, allowedRoles }) => {
+/*
+ * AnimatedOutlet — wraps the current route's child element with a fade+slide
+ * transition. Uses AnimatePresence + location key for clean enter/exit.
+ * The Suspense boundary is above this so the skeleton doesn't itself animate.
+ */
+const AnimatedOutlet = () => {
   const location = useLocation()
   return (
-    <ProtectedRoute allowedRoles={allowedRoles}>
-      <AppShell>
-        <Suspense fallback={<PageSkeleton />}>
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            {children}
-          </motion.div>
-        </Suspense>
-      </AppShell>
-    </ProtectedRoute>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="flex-1 flex flex-col min-h-0"
+      >
+        <Outlet />
+      </motion.div>
+    </AnimatePresence>
   )
 }
+
+/* Protect a route — wraps children with role checking */
+const Page = ({ children, allowedRoles }) => (
+  <ProtectedRoute allowedRoles={allowedRoles}>
+    {children}
+  </ProtectedRoute>
+)
 
 const ContributionsRedirect = () => {
   const { role } = useAuth()
@@ -148,31 +161,36 @@ function AppRoutes() {
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/404" element={<NotFound />} />
 
-      {/* Authenticated routes — all lazy-loaded */}
-      <Route path="/dashboard"          element={<Page><Dashboard /></Page>} />
-      <Route path="/members"            element={<Page><Members /></Page>} />
-      <Route path="/members/:id"        element={<Page><MemberProfile /></Page>} />
-      <Route path="/projects"           element={<Page><Projects /></Page>} />
-      <Route path="/projects/:id"       element={<Page><ProjectDetail /></Page>} />
-      <Route path="/teams"              element={<Page><Teams /></Page>} />
-      <Route path="/teams/new" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
-      <Route path="/events"             element={<Page><Events /></Page>} />
-      <Route path="/events/:id"         element={<Page><EventDetail /></Page>} />
-      <Route path="/competitions"       element={<Page><Competitions /></Page>} />
-      <Route path="/competitions/host" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
-      <Route path="/tasks"              element={<Page><Tasks /></Page>} />
-      <Route path="/learn"              element={<Page><Learn /></Page>} />
-      <Route path="/learn/new"          element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><NewResource /></Page>} />
-      <Route path="/contributions"      element={<ContributionsRedirect />} />
-      <Route path="/contributions/new"  element={<Page><NewContribution /></Page>} />
-      <Route path="/progress"           element={<Page><ProgressTrackerMember /></Page>} />
-      <Route path="/progress/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
-      <Route path="/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
-      <Route path="/storage" element={<Page allowedRoles={['chairperson','vice_chairperson']}><StorageDashboard /></Page>} />
-      <Route path="/chat"               element={<Page><Chat /></Page>} />
-      <Route path="/leadership"         element={<Page><Leadership /></Page>} />
-      <Route path="/meetings"           element={<Page><Meetings /></Page>} />
-      <Route path="/scheduler"          element={<Page><Scheduler /></Page>} />
+      {/*
+        Authenticated layout — AppShell renders ONCE and persists sidebar state.
+        Individual pages render inside <Outlet /> via the nested routes below.
+      */}
+      <Route element={<AppShell />}>
+        <Route path="/dashboard"          element={<Page><Dashboard /></Page>} />
+        <Route path="/members"            element={<Page><Members /></Page>} />
+        <Route path="/members/:id"        element={<Page><MemberProfile /></Page>} />
+        <Route path="/projects"           element={<Page><Projects /></Page>} />
+        <Route path="/projects/:id"       element={<Page><ProjectDetail /></Page>} />
+        <Route path="/teams"              element={<Page><Teams /></Page>} />
+        <Route path="/teams/new" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
+        <Route path="/events"             element={<Page><Events /></Page>} />
+        <Route path="/events/:id"         element={<Page><EventDetail /></Page>} />
+        <Route path="/competitions"       element={<Page><Competitions /></Page>} />
+        <Route path="/competitions/host" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
+        <Route path="/tasks"              element={<Page><Tasks /></Page>} />
+        <Route path="/learn"              element={<Page><Learn /></Page>} />
+        <Route path="/learn/new"          element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><NewResource /></Page>} />
+        <Route path="/contributions"      element={<ContributionsRedirect />} />
+        <Route path="/contributions/new"  element={<Page><NewContribution /></Page>} />
+        <Route path="/progress"           element={<Page><ProgressTrackerMember /></Page>} />
+        <Route path="/progress/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
+        <Route path="/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
+        <Route path="/storage" element={<Page allowedRoles={['chairperson','vice_chairperson']}><StorageDashboard /></Page>} />
+        <Route path="/chat"               element={<Page><Chat /></Page>} />
+        <Route path="/leadership"         element={<Page><Leadership /></Page>} />
+        <Route path="/meetings"           element={<Page><Meetings /></Page>} />
+        <Route path="/scheduler"          element={<Page><Scheduler /></Page>} />
+      </Route>
 
       {/* Catch-all → 404 */}
       <Route path="*" element={<NotFound />} />
@@ -182,13 +200,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <CacheProvider defaultTTL={5 * 60 * 1000} persistToStorage={true}>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </CacheProvider>
-    </ErrorBoundary>
+    <CacheProvider defaultTTL={5 * 60 * 1000} persistToStorage={true}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </CacheProvider>
   )
 }
 

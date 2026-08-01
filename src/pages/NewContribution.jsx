@@ -18,7 +18,8 @@ export const NewContribution = () => {
     visibility: 'public',
     project_id: searchParams.get('project_id') || '',
     event_id: searchParams.get('event_id') || '',
-    categories: ''
+    type: 'project',
+    tags: ''
   })
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
@@ -51,7 +52,8 @@ export const NewContribution = () => {
         visibility: form.visibility,
         project_id: form.project_id || null,
         event_id: form.event_id || null,
-        categories: form.categories ? form.categories.split(',').map(c => c.trim()).filter(Boolean) : []
+        type: form.type,
+        tags: form.tags ? form.tags.split(',').map(c => c.trim()).filter(Boolean) : []
       }
       await addContribution(contributionData, file)
       alert('Contribution added successfully!')
@@ -103,9 +105,21 @@ export const NewContribution = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-label-caps text-on-surface-variant mb-1.5 uppercase">Categories (comma separated)</label>
-              <input type="text" value={form.categories} onChange={e => setForm({...form, categories: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary" placeholder="e.g. hardware, IoT, research"/>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-label-caps text-on-surface-variant mb-1.5 uppercase">Type</label>
+                <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm">
+                  <option value="project">Project</option>
+                  <option value="research">Research</option>
+                  <option value="event">Event</option>
+                  <option value="competition">Competition</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-label-caps text-on-surface-variant mb-1.5 uppercase">Tags (comma separated)</label>
+                <input type="text" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary" placeholder="e.g. hardware, IoT, research"/>
+              </div>
             </div>
 
             <div>
@@ -150,7 +164,8 @@ export const NewContribution = () => {
                   <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-4 mb-3">{form.description || 'No description yet...'}</p>
                   <div className="flex flex-wrap gap-1.5 text-[10px] font-label-caps uppercase">
                     {form.visibility === 'private' && <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">Private</span>}
-                    {form.categories && form.categories.split(',').filter(Boolean).map((cat, i) => (
+                    <span className="bg-secondary/10 text-secondary px-2 py-0.5 rounded">{form.type}</span>
+                    {form.tags && form.tags.split(',').filter(Boolean).map((cat, i) => (
                       <span key={i} className="bg-primary/10 text-primary px-2 py-0.5 rounded">{cat.trim()}</span>
                     ))}
                   </div>

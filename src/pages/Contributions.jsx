@@ -69,19 +69,19 @@ export const Contributions = () => {
                 </div>
                 <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3 flex-1 mb-3">{c.description}</p>
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[10px] font-bold">{c.member_name?.charAt(0)?.toUpperCase()}</div>
-                  <span className="text-xs text-on-surface-variant">{c.member_name || 'Unknown'}</span>
+                  <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[10px] font-bold">{c.member?.full_name?.charAt(0)?.toUpperCase()}</div>
+                  <span className="text-xs text-on-surface-variant">{c.member?.full_name || 'Unknown'}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[10px] text-outline font-label-caps uppercase mb-3">
-                  {c.project_name && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{c.project_name}</span>}
-                  {c.event_name && <span className="bg-success/10 text-success px-2 py-0.5 rounded">{c.event_name}</span>}
+                  {c.project?.title && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{c.project?.title}</span>}
+                  {c.event?.title && <span className="bg-success/10 text-success px-2 py-0.5 rounded">{c.event?.title}</span>}
                 </div>
                 <div className="flex items-center justify-between pt-3 border-t border-outline-variant/30">
                   <div className="flex items-center gap-3">
                     {c.member_id === user?.id && (
                       <button onClick={() => alert('Edit functionality coming soon!')} className="text-on-surface-variant hover:text-primary transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
                     )}
-                    {c.comment_count > 0 && <span className="text-[10px] text-outline flex items-center gap-0.5"><span className="material-symbols-outlined text-sm">comment</span>{c.comment_count}</span>}
+                    {c.comments?.[0]?.count > 0 && <span className="text-[10px] text-outline flex items-center gap-0.5"><span className="material-symbols-outlined text-sm">comment</span>{c.comments?.[0]?.count}</span>}
                   </div>
                   {canManage && (
                     <div className="flex gap-1.5">

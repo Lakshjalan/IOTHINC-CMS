@@ -4,7 +4,7 @@ import { useProjects } from '../hooks/useProjects'
 import { useAuth } from '../hooks/useAuth'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
-const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '', github_link: '' }
+const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '' }
 
 export const Projects = () => {
   const navigate = useNavigate()

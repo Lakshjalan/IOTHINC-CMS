@@ -25,7 +25,8 @@ export default defineConfig({
           if (id.includes('@supabase'))       return 'vendor-supabase'
           if (id.includes('motion'))          return 'vendor-motion'
           // react + react-dom + react-router together (always co-loaded)
-          if (id.includes('react'))           return 'vendor-react'
+          // Use path-segment matching to avoid false positives like @uploadthing/react
+          if (/[/\\]node_modules[/\\](react-dom|react-router|react-router-dom|react)[/\\]/.test(id)) return 'vendor-react'
           // Everything else (small utils)
           return 'vendor-common'
         }
