@@ -68,6 +68,23 @@ export const useChat = (receiverId = null, teamId = null) => {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        (payload) => {
+          // Refresh messages when someone updates (e.g., soft delete)
+          if (teamId) {
+            if (payload.new.team_id === teamId) fetchMessages()
+          } else if (receiverId) {
+            if (
+              (payload.new.sender_id === user?.id && payload.new.receiver_id === receiverId) ||
+              (payload.new.sender_id === receiverId && payload.new.receiver_id === user?.id)
+            ) fetchMessages()
+          } else {
+            if (payload.new.receiver_id === null && payload.new.team_id === null) fetchMessages()
+          }
+        }
+      )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -96,5 +113,64 @@ export const useChat = (receiverId = null, teamId = null) => {
     }
   }
 
-  return { messages, loading, sendMessage }
+  const deleteMessage = async (messageId) => {
+    if (!user) return
+
+    try {
+      // Soft delete: set is_deleted to true
+      // The trigger will validate the 48-hour window and sender_id
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_deleted: true })
+        .eq('id', messageId)
+        .eq('sender_id', user.id)
+
+      if (error) throw error
+      
+      // Refresh messages to reflect the deletion
+      await fetchMessages()
+    } catch (err) {
+      console.error('Error deleting message:', err)
+      throw err
+    }
+  }
+
+  const canDeleteMessage = (message) => {
+    // Check if user is the sender
+    if (message.sender_id !== user?.id) return false
+    
+    // Check if message is already deleted
+    if (message.is_deleted) return false
+    
+    // Calculate hours since message was created
+    const createdAt = new Date(message.created_at)
+    const now = new Date()
+    const hoursDiff = (now - createdAt) / (1000 * 60 * 60)
+    
+    // Allow deletion within 48 hours
+    return hoursDiff <= 48
+  }
+
+  const getTimeRemainingForDelete = (message) => {
+    const createdAt = new Date(message.created_at)
+    const now = new Date()
+    const expiryTime = new Date(createdAt.getTime() + 48 * 60 * 60 * 1000) // 48 hours in ms
+    const timeRemaining = expiryTime - now
+    
+    if (timeRemaining <= 0) return { hours: 0, minutes: 0 }
+    
+    const hours = Math.floor(timeRemaining / (1000 * 60 * 60))
+    const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60))
+    
+    return { hours, minutes }
+  }
+
+  return { 
+    messages, 
+    loading, 
+    sendMessage, 
+    deleteMessage, 
+    canDeleteMessage, 
+    getTimeRemainingForDelete 
+  }
 }
