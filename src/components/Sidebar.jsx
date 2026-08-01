@@ -5,6 +5,7 @@ import { logError } from '../utils/logger'
 import { supabase } from '../supabaseClient'
 import { motion } from 'motion/react'
 import { IothincLogo } from '../assets/IothincLogo'
+import { prefetchRoute } from '../utils/prefetch'
 
 const navItemVariants = {
   hidden: { opacity: 0, x: -16 },
@@ -157,6 +158,8 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
               >
                 <Link
                   to={isLocked ? '#' : item.path}
+                  onMouseEnter={() => !isLocked && prefetchRoute(item.path)}
+                  onFocus={() => !isLocked && prefetchRoute(item.path)}
                   onClick={(e) => {
                     if (isLocked) {
                       e.preventDefault()
@@ -209,6 +212,8 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
           <Link
             className={`flex items-center gap-3 px-3 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-150 rounded-full active:scale-[0.98] ${collapsed ? 'justify-center' : ''}`}
             to="/leadership"
+            onMouseEnter={() => prefetchRoute('/leadership')}
+            onFocus={() => prefetchRoute('/leadership')}
             title={collapsed ? 'Leadership' : undefined}
           >
             <span className="material-symbols-outlined">shield_person</span>

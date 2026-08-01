@@ -33,7 +33,7 @@ const EventDetail    = lazy(() => import('./pages/EventDetail').then(m => ({ def
 const Competitions   = lazy(() => import('./pages/Competitions').then(m => ({ default: m.Competitions })))
 const CompetitionHost = lazy(() => import('./pages/CompetitionHost').then(m => ({ default: m.CompetitionHost })))
 const Tasks          = lazy(() => import('./pages/Tasks').then(m => ({ default: m.Tasks })))
-const Learn          = lazy(() => import('./pages/Learn').then(m => ({ default: m.Learn })))
+const Learn          = lazy(() => import('./pages/Learn'))
 const NewResource    = lazy(() => import('./pages/NewResource').then(m => ({ default: m.NewResource })))
 const Contributions  = lazy(() => import('./pages/Contributions').then(m => ({ default: m.Contributions })))
 const NewContribution = lazy(() => import('./pages/NewContribution').then(m => ({ default: m.NewContribution })))

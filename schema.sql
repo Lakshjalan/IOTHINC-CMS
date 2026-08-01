@@ -293,11 +293,11 @@ create policy "Update notification (is_read)"
 
 -- teams
 create policy "Select teams" on public.teams for select using (auth.role() = 'authenticated');
-create policy "Modify teams" on public.teams for all using (public.get_my_role() in ('chairperson', 'vice_chairperson'));
+create policy "Modify teams" on public.teams for all using (public.get_my_role() in ('chairperson', 'vice_chairperson') or lead_id = auth.uid());
 
 -- team_members
 create policy "Select team_members" on public.team_members for select using (auth.role() = 'authenticated');
-create policy "Modify team_members" on public.team_members for all using (public.get_my_role() in ('chairperson', 'vice_chairperson'));
+create policy "Modify team_members" on public.team_members for all using (public.get_my_role() in ('chairperson', 'vice_chairperson') or team_id in (select id from public.teams where lead_id = auth.uid()));
 
 -- projects
 create policy "Select projects" on public.projects for select using (auth.role() = 'authenticated');

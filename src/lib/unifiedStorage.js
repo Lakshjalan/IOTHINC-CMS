@@ -22,6 +22,7 @@
  */
 
 import { supabase } from '../supabaseClient'
+import { getCircuitBreaker } from './circuitBreaker'
 
 // ============================================
 // READ-ONLY PUBLIC CONFIG (safe for client)
@@ -312,18 +313,27 @@ export class UnifiedStorage {
    * Internal method to upload to specific provider
    */
   async _uploadToProvider(provider, bucket, key, file, metadata, onProgress) {
-    switch (provider) {
-      case 'supabase':
-        return this._uploadToSupabase(bucket, key, file, metadata, onProgress)
-      case 'cloudinary':
-        return this._uploadToCloudinary(key, file, metadata, onProgress)
-      case 'uploadthing':
-        return this._uploadToUploadthing(file, metadata, onProgress)
-      case 'b2':
-        return this._uploadToB2ViaEdgeFunction(bucket, key, file, metadata, onProgress)
-      default:
-        throw new Error(`Unknown provider: ${provider}`)
-    }
+    const breaker = getCircuitBreaker(provider, {
+      failureThreshold: 3,
+      recoveryTimeout: 10000,
+      requestTimeout: provider === 'b2' ? 30000 : 15000,
+      concurrencyLimit: 3
+    });
+
+    return breaker.execute(async () => {
+      switch (provider) {
+        case 'supabase':
+          return this._uploadToSupabase(bucket, key, file, metadata, onProgress)
+        case 'cloudinary':
+          return this._uploadToCloudinary(key, file, metadata, onProgress)
+        case 'uploadthing':
+          return this._uploadToUploadthing(file, metadata, onProgress)
+        case 'b2':
+          return this._uploadToB2ViaEdgeFunction(bucket, key, file, metadata, onProgress)
+        default:
+          throw new Error(`Unknown provider: ${provider}`)
+      }
+    });
   }
 
   // ============================================
@@ -500,49 +510,58 @@ export class UnifiedStorage {
   // ============================================
 
   async getSignedUrl(provider, bucket, key, expiresIn = 3600) {
-    switch (provider) {
-      case 'supabase': {
-        const { data, error } = await supabase.storage.from(bucket).createSignedUrl(key, expiresIn)
-        if (error) throw error
-        return data.signedUrl
-      }
+    const breaker = getCircuitBreaker(provider, {
+      failureThreshold: 3,
+      recoveryTimeout: 10000,
+      requestTimeout: 15000,
+      concurrencyLimit: 3
+    });
 
-      case 'cloudinary':
-        // Cloudinary public URLs are already CDN-delivered and optimized
-        return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${key}`
-
-      case 'uploadthing':
-        // Uploadthing CDN URLs are public by default
-        return `https://utfs.io/f/${key}`
-
-      case 'b2': {
-        // Request signed URL from Edge Function — B2 credentials stay server-side
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) throw new Error('Authentication required')
-
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-sign-url`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ bucket, key, expiresIn })
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error(`Failed to get B2 signed URL: ${response.statusText}`)
+    return breaker.execute(async () => {
+      switch (provider) {
+        case 'supabase': {
+          const { data, error } = await supabase.storage.from(bucket).createSignedUrl(key, expiresIn)
+          if (error) throw error
+          return data.signedUrl
         }
 
-        const { url } = await response.json()
-        return url
-      }
+        case 'cloudinary':
+          // Cloudinary public URLs are already CDN-delivered and optimized
+          return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${key}`
 
-      default:
-        throw new Error(`Unknown provider for signed URL: ${provider}`)
-    }
+        case 'uploadthing':
+          // Uploadthing CDN URLs are public by default
+          return `https://utfs.io/f/${key}`
+
+        case 'b2': {
+          // Request signed URL from Edge Function — B2 credentials stay server-side
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) throw new Error('Authentication required')
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-sign-url`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({ bucket, key, expiresIn })
+            }
+          )
+
+          if (!response.ok) {
+            throw new Error(`Failed to get B2 signed URL: ${response.statusText}`)
+          }
+
+          const { url } = await response.json()
+          return url
+        }
+
+        default:
+          throw new Error(`Unknown provider for signed URL: ${provider}`)
+      }
+    });
   }
 
   // ============================================
@@ -554,40 +573,49 @@ export class UnifiedStorage {
     const targetProvider = provider || config.provider
     const bucket = config.bucket
 
-    switch (targetProvider) {
-      case 'supabase': {
-        const { error } = await supabase.storage.from(bucket).remove([key])
-        if (error) throw error
-        break
+    const breaker = getCircuitBreaker(targetProvider, {
+      failureThreshold: 3,
+      recoveryTimeout: 10000,
+      requestTimeout: 15000,
+      concurrencyLimit: 3
+    });
+
+    await breaker.execute(async () => {
+      switch (targetProvider) {
+        case 'supabase': {
+          const { error } = await supabase.storage.from(bucket).remove([key])
+          if (error) throw error
+          break
+        }
+        case 'cloudinary':
+          // Cloudinary deletion requires a signed API call — handled server-side
+          console.warn('Cloudinary deletion requires a server-side API call (Edge Function or backend)')
+          break
+        case 'uploadthing':
+          // Uploadthing deletion requires their server API
+          console.warn('Uploadthing deletion requires server-side API call')
+          break
+        case 'b2': {
+          // B2 deletion via Edge Function
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) throw new Error('Authentication required')
+          await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-delete`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({ bucket, key })
+            }
+          )
+          break
+        }
+        default:
+          throw new Error(`Unsupported provider for delete: ${targetProvider}`)
       }
-      case 'cloudinary':
-        // Cloudinary deletion requires a signed API call — handled server-side
-        console.warn('Cloudinary deletion requires a server-side API call (Edge Function or backend)')
-        break
-      case 'uploadthing':
-        // Uploadthing deletion requires their server API
-        console.warn('Uploadthing deletion requires server-side API call')
-        break
-      case 'b2': {
-        // B2 deletion via Edge Function
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) throw new Error('Authentication required')
-        await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-delete`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ bucket, key })
-          }
-        )
-        break
-      }
-      default:
-        throw new Error(`Unsupported provider for delete: ${targetProvider}`)
-    }
+    });
   }
 
   async list(type, prefix = '', provider) {
@@ -595,38 +623,47 @@ export class UnifiedStorage {
     const targetProvider = provider || config.provider
     const bucket = config.bucket
 
-    switch (targetProvider) {
-      case 'supabase': {
-        const { data, error } = await supabase.storage.from(bucket).list(prefix)
-        if (error) throw error
-        return data
+    const breaker = getCircuitBreaker(targetProvider, {
+      failureThreshold: 3,
+      recoveryTimeout: 10000,
+      requestTimeout: 15000,
+      concurrencyLimit: 3
+    });
+
+    return breaker.execute(async () => {
+      switch (targetProvider) {
+        case 'supabase': {
+          const { data, error } = await supabase.storage.from(bucket).list(prefix)
+          if (error) throw error
+          return data
+        }
+
+        case 'b2': {
+          // B2 listing via Edge Function
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) throw new Error('Authentication required')
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-list`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({ bucket, prefix })
+            }
+          )
+
+          if (!response.ok) throw new Error(`B2 list failed: ${response.statusText}`)
+          const { items } = await response.json()
+          return items || []
+        }
+
+        default:
+          throw new Error(`Listing not supported for provider: ${targetProvider}`)
       }
-
-      case 'b2': {
-        // B2 listing via Edge Function
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) throw new Error('Authentication required')
-
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/b2-list`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ bucket, prefix })
-          }
-        )
-
-        if (!response.ok) throw new Error(`B2 list failed: ${response.statusText}`)
-        const { items } = await response.json()
-        return items || []
-      }
-
-      default:
-        throw new Error(`Listing not supported for provider: ${targetProvider}`)
-    }
+    });
   }
 
   // ============================================

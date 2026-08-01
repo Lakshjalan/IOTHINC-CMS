@@ -164,6 +164,46 @@ export const useTasks = (statusFilter = 'All') => {
     }
   )
 
+  const { mutate: mutateToggle } = toggleTaskCompleted
+  const optimisticToggleTaskCompleted = async (taskId, currentStatus) => {
+    const originalTasks = [...tasks]
+    const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
+    const newProgress = newStatus === 'completed' ? 100 : 0
+
+    // Optimistically update cache and UI
+    const updated = tasks.map(t =>
+      t.id === taskId
+        ? { ...t, status: newStatus, progress: newProgress }
+        : t
+    )
+    updateCache(updated)
+
+    try {
+      await mutateToggle(taskId, currentStatus)
+    } catch (err) {
+      console.warn('[Optimistic Update] Failed to toggle task completion. Rolling back.', err.message)
+      updateCache(originalTasks)
+      alert(`Failed to update task status: ${err.message || err}. Changes rolled back.`)
+    }
+  }
+
+  const { mutate: mutateDelete } = deleteTask
+  const optimisticDeleteTask = async (taskId) => {
+    const originalTasks = [...tasks]
+
+    // Optimistically update cache and UI
+    const updated = tasks.filter(t => t.id !== taskId)
+    updateCache(updated)
+
+    try {
+      await mutateDelete(taskId)
+    } catch (err) {
+      console.warn('[Optimistic Update] Failed to delete task. Rolling back.', err.message)
+      updateCache(originalTasks)
+      alert(`Failed to delete task: ${err.message || err}. Task restored.`)
+    }
+  }
+
   return {
     tasks,
     loading,
@@ -172,8 +212,8 @@ export const useTasks = (statusFilter = 'All') => {
     refetch,
     assignTask,
     updateTaskProgress,
-    toggleTaskCompleted,
+    toggleTaskCompleted: optimisticToggleTaskCompleted,
     addAdminComment,
-    deleteTask
+    deleteTask: optimisticDeleteTask
   }
 }

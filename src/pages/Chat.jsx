@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useChat } from '../hooks/useChat'
 import { useTeams } from '../hooks/useTeams'
 import { supabase } from '../supabaseClient'
+import { getCircuitBreaker } from '../lib/circuitBreaker'
 
 export const Chat = () => {
   const { user, profile } = useAuth()
@@ -235,14 +236,23 @@ export const Chat = () => {
     setShowSummaryModal(true)
 
     try {
-      const { data, error } = await supabase.functions.invoke('summarize-chat', {
-        body: {
-          room_id: currentRoomId,
-          receiver_id: receiverId,
-          team_id: teamId,
-          limit: 50
-        }
-      })
+      const breaker = getCircuitBreaker('gemini-summarizer', {
+        failureThreshold: 3,
+        recoveryTimeout: 10000,
+        requestTimeout: 8000, // Summarization can take some time, let's give it 8s
+        concurrencyLimit: 2
+      });
+
+      const { data, error } = await breaker.execute(async () => {
+        return supabase.functions.invoke('summarize-chat', {
+          body: {
+            room_id: currentRoomId,
+            receiver_id: receiverId,
+            team_id: teamId,
+            limit: 50
+          }
+        });
+      });
 
       if (error) {
         let msg = error.message || 'Failed to generate summary'

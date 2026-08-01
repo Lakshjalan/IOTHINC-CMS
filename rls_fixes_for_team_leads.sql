@@ -10,7 +10,7 @@ DROP POLICY IF EXISTS "Read team join requests" ON public.team_join_requests;
 CREATE POLICY "Read team join requests" ON public.team_join_requests
   FOR SELECT USING (
     auth.uid() = member_id 
-    OR public.get_my_role() IN ('admin', 'coordinator')
+    OR public.get_my_role() IN ('chairperson', 'vice_chairperson', 'department_lead')
     OR team_id IN (
       SELECT id FROM public.teams WHERE lead_id = auth.uid()
     )
@@ -20,7 +20,7 @@ DROP POLICY IF EXISTS "Admin can manage join requests" ON public.team_join_reque
 DROP POLICY IF EXISTS "Team leads and admin manage requests" ON public.team_join_requests;
 CREATE POLICY "Team leads and admin manage requests" ON public.team_join_requests
   FOR ALL USING (
-    public.get_my_role() IN ('admin', 'coordinator')
+    public.get_my_role() IN ('chairperson', 'vice_chairperson', 'department_lead')
     OR team_id IN (
       SELECT id FROM public.teams WHERE lead_id = auth.uid()
     )
@@ -32,7 +32,7 @@ ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Modify team_members" ON public.team_members;
 CREATE POLICY "Modify team_members" ON public.team_members
   FOR ALL USING (
-    public.get_my_role() = 'admin'
+    public.get_my_role() in ('chairperson', 'vice_chairperson')
     OR team_id IN (
       SELECT id FROM public.teams WHERE lead_id = auth.uid()
     )
@@ -86,8 +86,18 @@ ALTER TABLE public.event_tasks ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Manage event_tasks" ON public.event_tasks;
 CREATE POLICY "Manage event_tasks" ON public.event_tasks
   FOR ALL USING (
-    public.get_my_role() IN ('admin', 'coordinator')
+    public.get_my_role() IN ('chairperson', 'vice_chairperson', 'department_lead')
     OR event_team_id IN (
       SELECT id FROM public.event_teams WHERE created_by = auth.uid()
     )
+  );
+
+-- 7. Adjust policies on teams (General Club Teams) to allow Team Leads to modify/delete their own teams
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Modify teams" ON public.teams;
+CREATE POLICY "Modify teams" ON public.teams
+  FOR ALL USING (
+    public.get_my_role() IN ('chairperson', 'vice_chairperson')
+    OR lead_id = auth.uid()
   );

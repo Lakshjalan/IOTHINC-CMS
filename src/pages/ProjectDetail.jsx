@@ -119,18 +119,49 @@ export const ProjectDetail = () => {
 
   // ── Sub-task: toggle complete ─────────────────────────────
   const handleSubtaskToggle = async (subtask) => {
+    const originalSubtasks = [...subtasks]
+    const originalProgress = project?.progress
     const newStatus = subtask.status === 'completed' ? 'not_started' : 'completed'
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status: newStatus })
-      .eq('id', subtask.id)
-    if (error) { alert('Error: ' + error.message); return }
 
+    // Optimistic Update: Subtask status
     const updated = subtasks.map(st =>
       st.id === subtask.id ? { ...st, status: newStatus } : st
     )
     setSubtasks(updated)
-    await recalcProgress(updated)
+
+    // Optimistic Update: Project progress
+    const total = updated.reduce((acc, st) => {
+      if (st.status === 'completed') {
+        const w = parseInt(st.meta?.weightage || 0)
+        return acc + w
+      }
+      return acc
+    }, 0)
+    const capped = Math.min(total, 100)
+    setProject(prev => ({ ...prev, progress: capped }))
+
+    try {
+      // 1. Update task status in DB
+      const { error: taskErr } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', subtask.id)
+      if (taskErr) throw taskErr
+
+      // 2. Update parent project progress in DB
+      const { error: projErr } = await supabase
+        .from('projects')
+        .update({ progress: capped })
+        .eq('id', id)
+      if (projErr) throw projErr
+
+    } catch (err) {
+      console.warn('[Optimistic Update] Subtask toggle failed. Rolling back.', err.message)
+      // Rollback
+      setSubtasks(originalSubtasks)
+      setProject(prev => ({ ...prev, progress: originalProgress }))
+      alert(`Failed to update subtask status: ${err.message}. Changes rolled back.`)
+    }
   }
 
   // ── Sub-task: add ─────────────────────────────────────────
@@ -181,11 +212,43 @@ export const ProjectDetail = () => {
   // ── Sub-task: delete ──────────────────────────────────────
   const handleDeleteSubtask = async (subtaskId) => {
     if (!window.confirm('Delete this sub-task?')) return
-    const { error } = await supabase.from('tasks').delete().eq('id', subtaskId)
-    if (error) { alert('Error: ' + error.message); return }
+    const originalSubtasks = [...subtasks]
+    const originalProgress = project?.progress
+
+    // Optimistic Update: Remove subtask
     const updated = subtasks.filter(st => st.id !== subtaskId)
     setSubtasks(updated)
-    await recalcProgress(updated)
+
+    // Optimistic Update: Recalculate progress
+    const total = updated.reduce((acc, st) => {
+      if (st.status === 'completed') {
+        const w = parseInt(st.meta?.weightage || 0)
+        return acc + w
+      }
+      return acc
+    }, 0)
+    const capped = Math.min(total, 100)
+    setProject(prev => ({ ...prev, progress: capped }))
+
+    try {
+      // 1. Delete from DB
+      const { error: deleteErr } = await supabase.from('tasks').delete().eq('id', subtaskId)
+      if (deleteErr) throw deleteErr
+
+      // 2. Update progress in DB
+      const { error: projErr } = await supabase
+        .from('projects')
+        .update({ progress: capped })
+        .eq('id', id)
+      if (projErr) throw projErr
+
+    } catch (err) {
+      console.warn('[Optimistic Update] Subtask delete failed. Rolling back.', err.message)
+      // Rollback
+      setSubtasks(originalSubtasks)
+      setProject(prev => ({ ...prev, progress: originalProgress }))
+      alert(`Failed to delete subtask: ${err.message}. Subtask restored.`)
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────

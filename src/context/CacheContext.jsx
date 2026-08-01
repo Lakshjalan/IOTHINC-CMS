@@ -421,7 +421,11 @@ export const useCachedMutation = (mutationFn, options = {}) => {
     }
   }, [mutationFn, invalidateKeys, invalidateTags, cache, onSuccess, onError])
 
-  return { mutate, loading, error }
+  mutate.mutate = mutate
+  mutate.loading = loading
+  mutate.error = error
+
+  return mutate
 }
 
 export default CacheProvider
