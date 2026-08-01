@@ -14,6 +14,9 @@ export const Chat = () => {
   const [showDMs, setShowDMs] = useState(true)
   const [showEventTeams, setShowEventTeams] = useState(true)
   const [onlineUsers, setOnlineUsers] = useState([])
+  const [deletingMessageId, setDeletingMessageId] = useState(null)
+  const [deleteError, setDeleteError] = useState(null)
+  const [hoveredMessageId, setHoveredMessageId] = useState(null)
   const messagesEndRef = useRef(null)
 
   // "departments" are the teams from the departments/teams table
@@ -25,7 +28,14 @@ export const Chat = () => {
     ? activeChat.data?.id
     : null
 
-  const { messages, loading, sendMessage } = useChat(receiverId, teamId)
+  const { 
+    messages, 
+    loading, 
+    sendMessage, 
+    deleteMessage, 
+    canDeleteMessage, 
+    getTimeRemainingForDelete 
+  } = useChat(receiverId, teamId)
 
   // Fetch all other members for DMs
   useEffect(() => {
@@ -126,6 +136,19 @@ export const Chat = () => {
       setMessageText('')
     } catch (err) {
       alert('Failed to send message: ' + err.message)
+    }
+  }
+
+  const handleDeleteMessage = async (messageId) => {
+    setDeletingMessageId(messageId)
+    setDeleteError(null)
+    try {
+      await deleteMessage(messageId)
+    } catch (err) {
+      setDeleteError(err.message)
+      setTimeout(() => setDeleteError(null), 3000)
+    } finally {
+      setDeletingMessageId(null)
     }
   }
 
@@ -502,6 +525,24 @@ export const Chat = () => {
           </div>
         )}
 
+        {/* Delete Error Banner */}
+        {deleteError && (
+          <div className="bg-error/10 border-b border-error/20 p-3 animate-in slide-in-from-top-4 duration-300">
+            <div className="max-w-4xl mx-auto flex items-center justify-between text-error text-xs">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">error</span>
+                <span>{deleteError}</span>
+              </div>
+              <button
+                onClick={() => setDeleteError(null)}
+                className="text-error hover:text-error/80 p-1"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {loading ? (
@@ -519,8 +560,16 @@ export const Chat = () => {
           ) : (
             messages.map((msg) => {
               const isMe = msg.sender_id === user?.id
+              const canDelete = canDeleteMessage(msg)
+              const timeRemaining = getTimeRemainingForDelete(msg)
+              
               return (
-                <div key={msg.id} className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : ''}`}>
+                <div 
+                  key={msg.id} 
+                  className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : ''} group`}
+                  onMouseEnter={() => setHoveredMessageId(msg.id)}
+                  onMouseLeave={() => setHoveredMessageId(null)}
+                >
                   {!isMe && (
                     <img 
                       src={msg.sender?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(msg.sender?.full_name || 'U')}`} 
@@ -530,12 +579,42 @@ export const Chat = () => {
                   )}
                   <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {!isMe && <span className="text-[10px] text-on-surface-variant font-label-caps uppercase ml-1 mb-1">{msg.sender?.full_name}</span>}
-                    <div className={`px-4 py-2.5 text-sm leading-relaxed ${isMe ? 'bg-primary text-on-primary rounded-2xl rounded-tr-sm' : 'bg-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm'}`}>
-                      {msg.content}
+                    <div className={`px-4 py-2.5 text-sm leading-relaxed relative ${isMe ? 'bg-primary text-on-primary rounded-2xl rounded-tr-sm' : 'bg-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm'}`}>
+                      {msg.is_deleted ? (
+                        <span className="italic opacity-60">Message deleted</span>
+                      ) : (
+                        msg.content
+                      )}
+                      
+                      {/* Delete Button - shown on hover for own messages */}
+                      {isMe && canDelete && hoveredMessageId === msg.id && !msg.is_deleted && (
+                        <button
+                          onClick={() => handleDeleteMessage(msg.id)}
+                          disabled={deletingMessageId === msg.id}
+                          title={`Delete message (expires in ${timeRemaining.hours}h ${timeRemaining.minutes}m)`}
+                          className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-on-surface-variant hover:text-error disabled:opacity-50"
+                        >
+                          {deletingMessageId === msg.id ? (
+                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                            </svg>
+                          ) : (
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          )}
+                        </button>
+                      )}
                     </div>
-                    <span className="text-[10px] text-outline mt-1 mx-1">
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-2 mt-1 mx-1">
+                      <span className="text-[10px] text-outline">
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {isMe && canDelete && (
+                        <span className="text-[9px] text-outline-variant opacity-60">
+                          Delete in {timeRemaining.hours}h {timeRemaining.minutes}m
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -560,7 +639,7 @@ export const Chat = () => {
                   ? `Message team ${headerInfo.title}…`
                   : `Message ${headerInfo.title}…`
               }
-              className="w-full bg-surface-container-low text-on-surface placeholder:text-outline border border-outline-variant rounded-full pl-6 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              className="w-full bg-surface-container-low text-on-surface placeholder:text-outline border border-outline-variant rounded-full pl-6 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
             <button 
               type="submit"
