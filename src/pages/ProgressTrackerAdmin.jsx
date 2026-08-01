@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useProgress } from '../hooks/useProgress'
+import { useAllMembersProgress } from '../hooks/useProgress'
 import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
+import { TableSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 export const ProgressTrackerAdmin = () => {
   const { role, user } = useAuth()
   const navigate = useNavigate()
-  const { fetchAllMembersProgress } = useProgress()
+  const { members, loading } = useAllMembersProgress()
 
   const [activeTab, setActiveTab] = useState('members') // 'members' | 'contributions'
-  const [members, setMembers] = useState([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [commentTarget, setCommentTarget] = useState(null)
   const [commentText, setCommentText] = useState('')
-  const [clubAvg, setClubAvg] = useState(0)
+
+  // Derived from cached members data — no separate state/effect needed
+  const clubAvg = members.length > 0
+    ? Math.round(members.reduce((sum, m) => sum + m.avgProgress, 0) / members.length)
+    : 0
 
   // Contributions tab states & filtering
   const { contributions, loading: contrLoading, toggleFlagContribution, deleteContribution } = useContributions()
@@ -28,19 +31,6 @@ export const ProgressTrackerAdmin = () => {
   const [membersList, setMembersList] = useState([])
 
   useEffect(() => { document.title = "Progress Tracker (Admin) | IOTHINC" }, [])
-
-  const loadMembers = async () => {
-    setLoading(true)
-    const data = await fetchAllMembersProgress()
-    setMembers(data || [])
-    if (data && data.length > 0) {
-      const total = data.reduce((sum, m) => sum + m.avgProgress, 0)
-      setClubAvg(Math.round(total / data.length))
-    }
-    setLoading(false)
-  }
-
-  useEffect(() => { loadMembers() }, [])
 
   useEffect(() => {
     supabase.from('projects').select('id,title').then(r => setProjectsList(r.data || []))
@@ -128,7 +118,7 @@ export const ProgressTrackerAdmin = () => {
           </div>
 
           {loading ? (
-            <div className="p-12 text-center"><svg className="animate-spin h-8 w-8 text-primary mx-auto" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"/></svg></div>
+            <TableSkeleton columns={6} rows={8} />
           ) : (
             <div className="bg-surface-container rounded-xl border border-outline-variant shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
@@ -226,12 +216,7 @@ export const ProgressTrackerAdmin = () => {
           </div>
 
           {contrLoading ? (
-            <div className="p-12 text-center">
-              <svg className="animate-spin h-8 w-8 text-primary mx-auto" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"/>
-              </svg>
-            </div>
+            <GridSkeleton items={6} variant="default" />
           ) : filteredContributions.length === 0 ? (
             <div className="bg-surface-container rounded-xl border border-outline-variant p-12 text-center text-on-surface-variant italic">
               No contributions found.

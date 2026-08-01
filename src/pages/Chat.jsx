@@ -583,20 +583,14 @@ export const Chat = () => {
                   )}
                   <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {!isMe && <span className="text-[10px] text-on-surface-variant font-label-caps uppercase ml-1 mb-1">{msg.sender?.full_name}</span>}
-                    <div className={`px-4 py-2.5 text-sm leading-relaxed relative ${isMe ? 'bg-primary text-on-primary rounded-2xl rounded-tr-sm' : 'bg-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm'}`}>
-                      {msg.is_deleted ? (
-                        <span className="italic opacity-60">Message deleted</span>
-                      ) : (
-                        msg.content
-                      )}
-                      
-                      {/* Delete Button - shown on hover for own messages */}
+                    <div className="flex items-center gap-2">
+                      {/* Delete Button - shown on hover for own messages on the left side of text */}
                       {isMe && canDelete && hoveredMessageId === msg.id && !msg.is_deleted && (
                         <button
                           onClick={() => setConfirmDeleteId(msg.id)}
                           disabled={deletingMessageId === msg.id}
                           title={`Delete message (expires in ${timeRemaining.hours}h ${timeRemaining.minutes}m)`}
-                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-on-surface-variant hover:text-error disabled:opacity-50"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-black dark:text-white hover:text-error disabled:opacity-50 shrink-0"
                         >
                           {deletingMessageId === msg.id ? (
                             <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -608,6 +602,13 @@ export const Chat = () => {
                           )}
                         </button>
                       )}
+                      <div className={`px-4 py-2.5 text-sm leading-relaxed ${isMe ? 'bg-primary text-on-primary rounded-2xl rounded-tr-sm' : 'bg-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm'}`}>
+                        {msg.is_deleted ? (
+                          <span className="italic opacity-60">Message deleted</span>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-1 mx-1">
                       <span className="text-[10px] text-outline">

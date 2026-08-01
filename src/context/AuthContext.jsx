@@ -100,6 +100,17 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
+    // Clear localStorage caches for user privacy/security
+    try {
+      localStorage.removeItem('iothinc_cache')
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('chat_')) {
+          localStorage.removeItem(key)
+        }
+      })
+    } catch (e) {
+      console.warn('Error clearing localStorage on signout:', e)
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }

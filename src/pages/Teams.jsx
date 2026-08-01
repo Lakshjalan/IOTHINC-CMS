@@ -4,6 +4,7 @@ import { useTeams } from '../hooks/useTeams'
 import { useTeamJoinRequests } from '../hooks/useTeamJoinRequests'
 import { useAuth } from '../hooks/useAuth'
 import { useMembers } from '../hooks/useMembers'
+import { GridSkeleton } from '../components/SkeletonLoaders'
 
 // ── Avatar Stack ─────────────────────────────────────────────
 const AvatarStack = ({ members = [], max = 5 }) => (
@@ -322,16 +323,7 @@ export const Teams = () => {
 
   if (loading) return (
     <main className="flex-1 px-4 md:px-8 pt-24 pb-12 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-full">
-          {/* Use the shared skeleton for teams/cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-surface-container rounded-2xl border border-outline-variant p-5 animate-pulse h-52" />
-            ))}
-          </div>
-        </div>
-      </div>
+      <GridSkeleton items={6} variant="project" className="grid-cols-1 md:grid-cols-2 lg:grid-cols-3" />
     </main>
   )
 

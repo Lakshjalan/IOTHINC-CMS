@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useEventTeams } from '../hooks/useEventTeams'
 import { useMembers } from '../hooks/useMembers'
+import { DetailPageSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 const PRIORITY_STYLES = {
   high: 'bg-red-500/20 text-red-400',
@@ -516,16 +517,7 @@ export const EventDetail = () => {
   const myTeamsCount = eventTeams.filter(t => t.isMember).length
   const pendingRequestsCount = eventTeams.reduce((acc, t) => acc + t.pendingMembers.length, 0)
 
-  if (loadingEvent) return (
-    <main className="flex-1 px-4 md:px-8 pt-24 pb-12 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <svg className="animate-spin h-10 w-10 text-primary" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor" />
-        </svg>
-      </div>
-    </main>
-  )
+  if (loadingEvent) return <DetailPageSkeleton variant="event" />
 
   if (!event) return (
     <main className="flex-1 px-4 md:px-8 pt-24 max-w-7xl mx-auto w-full">
@@ -669,12 +661,7 @@ export const EventDetail = () => {
       {activeTab === 'teams' && (
         <div>
           {teamsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <svg className="animate-spin h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor" />
-              </svg>
-            </div>
+            <GridSkeleton items={3} cols={{ base: 1, md: 2, lg: 3 }} variant="project" />
           ) : eventTeams.length === 0 ? (
             <div className="text-center py-20 bg-surface-container rounded-2xl border border-outline-variant border-dashed">
               <span className="material-symbols-outlined text-5xl text-on-surface-variant/40 mb-4 block">group_off</span>

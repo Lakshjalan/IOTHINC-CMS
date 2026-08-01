@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useMembers } from '../hooks/useMembers'
 import { useAuth } from '../hooks/useAuth'
 import { getOptimizedImageUrl } from '../utils/imageOptimizer'
+import { TableSkeleton } from '../components/SkeletonLoaders'
 
 // Rank order must mirror public.role_rank() in the DB — keep these in sync.
 const ROLE_RANK = { chairperson: 4, vice_chairperson: 3, department_lead: 2, member: 1 }
@@ -187,15 +188,14 @@ export const Members = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Table List Area */}
-        <div className={`${selectedMember ? 'lg:col-span-8' : 'lg:col-span-12'} bg-surface-container rounded-xl border border-outline-variant overflow-hidden shadow-sm transition-all duration-200`}>
-          {loading ? (
-            <div className="p-8 text-center">
-              <svg className="animate-spin h-6 w-6 text-primary mx-auto" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-              </svg>
-            </div>
-          ) : (
+        {loading ? (
+          <TableSkeleton
+            columns={isAdmin ? 5 : 4}
+            rows={8}
+            className={`${selectedMember ? 'lg:col-span-8' : 'lg:col-span-12'} transition-all duration-200`}
+          />
+        ) : (
+          <div className={`${selectedMember ? 'lg:col-span-8' : 'lg:col-span-12'} bg-surface-container rounded-xl border border-outline-variant overflow-hidden shadow-sm transition-all duration-200`}>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -274,8 +274,8 @@ export const Members = () => {
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Selected Member Side Panel Drawer */}
         {selectedMember && (

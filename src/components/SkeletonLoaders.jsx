@@ -431,6 +431,28 @@ export const DashboardSkeleton = ({ className = '' }) => (
 )
 
 /* ============================================
+   PROGRESS RING SKELETON (member progress tracker)
+   ============================================ */
+
+export const ProgressRingSkeleton = ({ size = 140, className = '' }) => (
+  <div className={`bg-surface-container rounded-xl border border-outline-variant p-6 shadow-sm flex flex-col items-center w-full ${className}`}>
+    <SkeletonBase className="rounded-full mb-4" style={{ width: size, height: size }} />
+    <SkeletonBase className="h-8 w-16 rounded mb-2" />
+    <SkeletonBase className="h-3 w-28 rounded" />
+    <div className="grid grid-cols-2 gap-4 w-full mt-4 pt-4 border-t border-outline-variant/30">
+      <div className="flex flex-col items-center gap-1">
+        <SkeletonBase className="h-5 w-8 rounded" />
+        <SkeletonBase className="h-3 w-16 rounded" />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <SkeletonBase className="h-5 w-8 rounded" />
+        <SkeletonBase className="h-3 w-16 rounded" />
+      </div>
+    </div>
+  </div>
+)
+
+/* ============================================
    CHART SKELETON
    ============================================ */
 
@@ -545,6 +567,7 @@ export default {
   AvatarSkeleton,
   StatCardSkeleton,
   ChartSkeleton,
+  ProgressRingSkeleton,
   CalendarSkeleton,
   ChatSkeleton,
   NotificationSkeleton,

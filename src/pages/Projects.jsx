@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProjects } from '../hooks/useProjects'
 import { useAuth } from '../hooks/useAuth'
+import { GridSkeleton } from '../components/SkeletonLoaders'
 
 const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '', github_link: '' }
 
@@ -304,12 +305,7 @@ export const Projects = () => {
       </div>
 
       {loading ? (
-        <div className="p-8 text-center">
-          <svg className="animate-spin h-6 w-6 text-primary mx-auto" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-          </svg>
-        </div>
+        <GridSkeleton items={6} variant="project" className="grid-cols-1 md:grid-cols-2 lg:grid-cols-3" />
       ) : viewMode === 'board' ? (
         /* Board Kanban View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

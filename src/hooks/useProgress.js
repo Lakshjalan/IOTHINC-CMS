@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
@@ -101,9 +101,34 @@ export const useProgress = (memberId = null) => {
     }
   )
 
-  // Admin: fetch all members' progress (not cached - admin only)
-  const fetchAllMembersProgress = useCallback(async () => {
-    try {
+  return {
+    tasks,
+    loading,
+    error,
+    isStale,
+    avgProgress,
+    refetch,
+    updateProgress,
+    markTaskDone
+  }
+}
+
+/**
+ * Admin: all members' aggregated task progress.
+ * Cached like every other list in the app — tagged with both 'progress' and
+ * 'members' so it auto-invalidates when tasks change OR when a member is
+ * added/edited/removed elsewhere (e.g. from the Members page).
+ */
+export const useAllMembersProgress = () => {
+  const {
+    data: members = [],
+    loading,
+    error,
+    isStale,
+    refetch
+  } = useCachedQuery(
+    'progress_all_members',
+    async () => {
       const { data: profiles, error: pErr } = await supabase
         .from('profiles')
         .select('id, full_name, email, department, year, role, avatar_url')
@@ -118,7 +143,7 @@ export const useProgress = (memberId = null) => {
       if (tErr) throw tErr
 
       // Aggregate task stats for each profile
-      const aggregated = profiles.map(profile => {
+      return profiles.map(profile => {
         const memberTasks = tasksData.filter(t => t.assigned_to === profile.id)
         const totalCount = memberTasks.length
         const completedCount = memberTasks.filter(t => t.status === 'completed').length
@@ -132,23 +157,14 @@ export const useProgress = (memberId = null) => {
           avgProgress: avg
         }
       })
-
-      return aggregated;
-    } catch (err) {
-      console.error('Error fetching admin progress:', err)
-      return []
+    },
+    {
+      ttl: 3 * 60 * 1000, // 3 minutes
+      tags: [PROGRESS_CACHE_TAG, 'members'],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false
     }
-  }, [])
+  )
 
-  return {
-    tasks,
-    loading,
-    error,
-    isStale,
-    avgProgress,
-    refetch,
-    updateProgress,
-    markTaskDone,
-    fetchAllMembersProgress
-  }
+  return { members, loading, error, isStale, refetch }
 }

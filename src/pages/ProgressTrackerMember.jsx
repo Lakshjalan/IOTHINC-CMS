@@ -4,6 +4,7 @@ import { useProgress } from '../hooks/useProgress'
 import { useAuth } from '../hooks/useAuth'
 import { useContributions } from '../hooks/useContributions'
 import { sanitizeUUID } from '../utils/sanitize'
+import { ProgressRingSkeleton, ListSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 export const ProgressTrackerMember = () => {
   const { user } = useAuth()
@@ -43,7 +44,14 @@ export const ProgressTrackerMember = () => {
       <p className="font-body-md text-body-md text-on-surface-variant mb-8">Track your task assignments and overall performance.</p>
 
       {loading ? (
-        <div className="p-12 text-center"><svg className="animate-spin h-8 w-8 text-primary mx-auto" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"/></svg></div>
+        <div className="grid lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1">
+            <ProgressRingSkeleton />
+          </div>
+          <div className="lg:col-span-3">
+            <ListSkeleton items={4} variant="task" showAvatar={false} />
+          </div>
+        </div>
       ) : (
         <div className="grid lg:grid-cols-4 gap-8">
           {/* Progress Ring */}
@@ -154,12 +162,7 @@ export const ProgressTrackerMember = () => {
         </div>
 
         {contrLoading ? (
-          <div className="p-8 text-center">
-            <svg className="animate-spin h-6 w-6 text-primary mx-auto" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"/>
-            </svg>
-          </div>
+          <GridSkeleton items={3} variant="default" />
         ) : contributions.length === 0 ? (
           <div className="bg-surface-container rounded-xl border border-outline-variant p-8 text-center text-on-surface-variant italic text-sm">
             No logged contributions.
