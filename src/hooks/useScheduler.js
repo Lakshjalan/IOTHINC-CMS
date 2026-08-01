@@ -1,19 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
+import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+const SCHEDULER_CACHE_TAG = 'schedules'
 
 export const useScheduler = () => {
   const { user } = useAuth()
-  const [mySchedule, setMySchedule] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
 
   // Fetch the current user's schedule
-  const fetchMySchedule = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    setError(null)
-    try {
+  const {
+    data: mySchedule = { busy_mask: '000000000000000000000000000000000000000000000000000000000000', updated_at: null, isNew: true },
+    loading,
+    error,
+    isStale,
+    refetch: refetchMySchedule,
+    updateCache
+  } = useCachedQuery(
+    `my_schedule_${user?.id || 'none'}`,
+    async () => {
+      if (!user) return { busy_mask: '000000000000000000000000000000000000000000000000000000000000', updated_at: null, isNew: true }
       const { data, error: fetchErr } = await supabase
         .from('member_schedules')
         .select('busy_mask, updated_at')
@@ -21,25 +27,21 @@ export const useScheduler = () => {
         .maybeSingle()
 
       if (fetchErr) throw fetchErr
-      setMySchedule(data || { busy_mask: '000000000000000000000000000000000000000000000000000000000000', updated_at: null, isNew: true })
-    } catch (err) {
-      console.error('Error fetching own schedule:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      return data || { busy_mask: '000000000000000000000000000000000000000000000000000000000000', updated_at: null, isNew: true }
+    },
+    {
+      ttl: 5 * 60 * 1000, // 5 minutes
+      tags: [SCHEDULER_CACHE_TAG, `my_schedule_${user?.id}`],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      enabled: !!user
     }
-  }, [user])
-
-  useEffect(() => {
-    fetchMySchedule()
-  }, [fetchMySchedule])
+  )
 
   // Save/Upsert own schedule
-  const saveMySchedule = async (busyMask) => {
-    if (!user) throw new Error('User must be authenticated')
-    setLoading(true)
-    setError(null)
-    try {
+  const saveMySchedule = useCachedMutation(
+    async (busyMask) => {
+      if (!user) throw new Error('User must be authenticated')
       // Postgres bigint is a string in JavaScript when retrieved from Supabase to prevent precision issues,
       // but we can send it as a string or number when inserting/updating.
       const maskStr = busyMask.toString()
@@ -54,29 +56,80 @@ export const useScheduler = () => {
         .single()
 
       if (saveErr) throw saveErr
-      setMySchedule(data)
       return data
-    } catch (err) {
-      console.error('Error saving schedule:', err)
-      setError(err.message)
-      throw err
-    } finally {
-      setLoading(false)
+    },
+    {
+      invalidateTags: [SCHEDULER_CACHE_TAG, `my_schedule_${user?.id}`],
+      onSuccess: (data) => {
+        updateCache(data)
+        refetchMySchedule()
+      }
     }
-  }
+  )
 
   // Fetch schedules of all members in a given team/department (or 'ALL' for everyone)
-  const fetchTeamSchedules = async (teamId) => {
-    if (!teamId) return []
-    if (teamId === 'ALL') {
-      return await fetchAllSchedules()
+  const fetchTeamSchedules = useCachedQuery(
+    `team_schedules_${null}`,
+    async (teamId) => {
+      if (!teamId) return []
+      if (teamId === 'ALL') {
+        return await fetchAllSchedules()
+      }
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('team_members')
+          .select(`
+            member_id,
+            profiles:member_id (
+              id,
+              full_name,
+              avatar_url,
+              role,
+              department,
+              member_schedules:member_schedules (
+                busy_mask,
+                updated_at
+              )
+            )
+          `)
+          .eq('team_id', teamId)
+
+        if (fetchErr) throw fetchErr
+
+        return (data || []).map(row => {
+          const profile = row.profiles
+          const schedule = profile?.member_schedules?.[0] || profile?.member_schedules || null
+          return {
+            id: profile?.id,
+            full_name: profile?.full_name || 'Unknown Member',
+            avatar_url: profile?.avatar_url,
+            role: profile?.role || 'member',
+            department: profile?.department,
+            busy_mask: schedule?.busy_mask || '000000000000000000000000000000000000000000000000000000000000',
+            has_uploaded: !!schedule,
+            updated_at: schedule?.updated_at
+          }
+        }).filter(m => m.id)
+      } catch (err) {
+        console.error('Error fetching team schedules:', err)
+        throw err
+      }
+    },
+    {
+      ttl: 3 * 60 * 1000,
+      tags: [SCHEDULER_CACHE_TAG],
+      enabled: false // Called manually
     }
-    try {
-      const { data, error: fetchErr } = await supabase
-        .from('team_members')
-        .select(`
-          member_id,
-          profiles:member_id (
+  )
+
+  // Fetch all schedules for system-wide slot searches
+  const fetchAllSchedules = useCachedQuery(
+    `all_schedules`,
+    async () => {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('profiles')
+          .select(`
             id,
             full_name,
             avatar_url,
@@ -86,80 +139,46 @@ export const useScheduler = () => {
               busy_mask,
               updated_at
             )
-          )
-        `)
-        .eq('team_id', teamId)
+          `)
+          .eq('needs_approval', false)
+          .order('full_name')
 
-      if (fetchErr) throw fetchErr
+        if (fetchErr) throw fetchErr
 
-      return (data || []).map(row => {
-        const profile = row.profiles
-        const schedule = profile?.member_schedules?.[0] || profile?.member_schedules || null
-        return {
-          id: profile?.id,
-          full_name: profile?.full_name || 'Unknown Member',
-          avatar_url: profile?.avatar_url,
-          role: profile?.role || 'member',
-          department: profile?.department,
-          busy_mask: schedule?.busy_mask || '000000000000000000000000000000000000000000000000000000000000',
-          has_uploaded: !!schedule,
-          updated_at: schedule?.updated_at
-        }
-      }).filter(m => m.id)
-    } catch (err) {
-      console.error('Error fetching team schedules:', err)
-      throw err
+        return (data || []).map(profile => {
+          const schedule = profile.member_schedules?.[0] || profile.member_schedules || null
+          return {
+            id: profile.id,
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            role: profile.role,
+            department: profile.department,
+            busy_mask: schedule?.busy_mask || '000000000000000000000000000000000000000000000000000000000000',
+            has_uploaded: !!schedule,
+            updated_at: schedule?.updated_at
+          }
+        })
+      } catch (err) {
+        console.error('Error fetching all schedules:', err)
+        throw err
+      }
+    },
+    {
+      ttl: 5 * 60 * 1000,
+      tags: [SCHEDULER_CACHE_TAG],
+      enabled: false // Called manually
     }
-  }
-
-  // Fetch all schedules for system-wide slot searches
-  const fetchAllSchedules = async () => {
-    try {
-      const { data, error: fetchErr } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          avatar_url,
-          role,
-          department,
-          member_schedules:member_schedules (
-            busy_mask,
-            updated_at
-          )
-        `)
-        .eq('needs_approval', false)
-        .order('full_name')
-
-      if (fetchErr) throw fetchErr
-
-      return (data || []).map(profile => {
-        const schedule = profile.member_schedules?.[0] || profile.member_schedules || null
-        return {
-          id: profile.id,
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-          role: profile.role,
-          department: profile.department,
-          busy_mask: schedule?.busy_mask || '000000000000000000000000000000000000000000000000000000000000',
-          has_uploaded: !!schedule,
-          updated_at: schedule?.updated_at
-        }
-      })
-    } catch (err) {
-      console.error('Error fetching all schedules:', err)
-      throw err
-    }
-  }
+  )
 
   return {
     mySchedule,
     loading,
     error,
-    refetchMySchedule: fetchMySchedule,
+    isStale,
+    refetchMySchedule,
     saveMySchedule,
-    fetchTeamSchedules,
-    fetchAllSchedules
+    fetchTeamSchedules: fetchTeamSchedules.getOrFetch,
+    fetchAllSchedules: fetchAllSchedules.getOrFetch
   }
 }
 
@@ -227,4 +246,3 @@ export const getGroupCommonFreeMask = (membersWithBigInt) => {
   }
   return (~combinedBusy) & MASK_72_BITS
 }
-

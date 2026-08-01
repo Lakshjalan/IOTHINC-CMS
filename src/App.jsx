@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import { CacheProvider } from './context/CacheContext'
 
 /* Layout components — kept eager as they appear on every authenticated page */
 import { Sidebar } from './components/Sidebar'
@@ -182,9 +183,11 @@ function AppRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <CacheProvider defaultTTL={5 * 60 * 1000} persistToStorage={true}>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </CacheProvider>
     </ErrorBoundary>
   )
 }

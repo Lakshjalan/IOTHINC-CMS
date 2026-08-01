@@ -1,17 +1,26 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
+import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+const TEAM_JOIN_REQUESTS_CACHE_TAG = 'team_join_requests'
 
 export const useTeamJoinRequests = () => {
   const { user } = useAuth()
-  const [requests, setRequests] = useState([])
-  const [myRequests, setMyRequests] = useState([]) // requests I've submitted
-  const [loading, setLoading] = useState(true)
 
-  const fetchRequests = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    try {
+  // Use cached query for fetching
+  const {
+    data: allData = { requests: [], myRequests: [] },
+    loading,
+    error,
+    isStale,
+    refetch,
+    updateCache
+  } = useCachedQuery(
+    `team_join_requests_${user?.id || 'none'}`,
+    async () => {
+      if (!user) return { requests: [], myRequests: [] }
+
       // Admin/coordinator: fetch all pending requests
       const { data: allRequests } = await supabase
         .from('team_join_requests')
@@ -23,91 +32,113 @@ export const useTeamJoinRequests = () => {
         .eq('status', 'pending')
         .order('requested_at', { ascending: false })
 
-      setRequests(allRequests || [])
-
       // My submitted requests
       const { data: mine } = await supabase
         .from('team_join_requests')
         .select('*, team:teams!team_join_requests_team_id_fkey(id, name)')
         .eq('member_id', user.id)
 
-      setMyRequests(mine || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+      return {
+        requests: allRequests || [],
+        myRequests: mine || []
+      }
+    },
+    {
+      ttl: 2 * 60 * 1000, // 2 minutes
+      tags: [TEAM_JOIN_REQUESTS_CACHE_TAG],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      enabled: !!user
     }
-  }, [user])
+  )
 
+  // Set up real-time subscription for instant updates
   useEffect(() => {
-    fetchRequests()
+    if (!user) return
 
     const channel = supabase
       .channel('team_join_requests_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_join_requests' }, () => {
-        fetchRequests()
+        refetch()
       })
       .subscribe()
 
     return () => supabase.removeChannel(channel)
-  }, [fetchRequests])
+  }, [refetch, user])
 
-  const requestJoin = async (teamId, message = '') => {
-    const { error } = await supabase
-      .from('team_join_requests')
-      .upsert(
-        { team_id: teamId, member_id: user?.id, status: 'pending', request_message: message },
-        { onConflict: 'team_id,member_id' }
-      )
-    if (error) throw error
-    await fetchRequests()
-  }
-
-  const approveRequest = async (requestId, teamId, memberId) => {
-    // 1. Update request status
-    const { error: reqErr } = await supabase
-      .from('team_join_requests')
-      .update({ status: 'approved', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
-      .eq('id', requestId)
-    if (reqErr) throw reqErr
-
-    // 2. Add member to team_members
-    const { data: existing } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('team_id', teamId)
-      .eq('member_id', memberId)
-      .maybeSingle()
-
-    if (!existing) {
-      const { error: memErr } = await supabase
-        .from('team_members')
-        .insert({ team_id: teamId, member_id: memberId })
-      if (memErr) throw memErr
+  // Mutations with cache invalidation
+  const requestJoin = useCachedMutation(
+    async (teamId, message = '') => {
+      const { error } = await supabase
+        .from('team_join_requests')
+        .upsert(
+          { team_id: teamId, member_id: user?.id, status: 'pending', request_message: message },
+          { onConflict: 'team_id,member_id' }
+        )
+      if (error) throw error
+    },
+    {
+      invalidateTags: [TEAM_JOIN_REQUESTS_CACHE_TAG],
+      onSuccess: () => refetch()
     }
+  )
 
-    await fetchRequests()
-  }
+  const approveRequest = useCachedMutation(
+    async (requestId, teamId, memberId) => {
+      // 1. Update request status
+      const { error: reqErr } = await supabase
+        .from('team_join_requests')
+        .update({ status: 'approved', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+        .eq('id', requestId)
+      if (reqErr) throw reqErr
 
-  const rejectRequest = async (requestId) => {
-    const { error } = await supabase
-      .from('team_join_requests')
-      .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
-      .eq('id', requestId)
-    if (error) throw error
-    await fetchRequests()
-  }
+      // 2. Add member to team_members
+      const { data: existing } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('member_id', memberId)
+        .maybeSingle()
+
+      if (!existing) {
+        const { error: memErr } = await supabase
+          .from('team_members')
+          .insert({ team_id: teamId, member_id: memberId })
+        if (memErr) throw memErr
+      }
+    },
+    {
+      invalidateTags: [TEAM_JOIN_REQUESTS_CACHE_TAG, 'teams'],
+      onSuccess: () => refetch()
+    }
+  )
+
+  const rejectRequest = useCachedMutation(
+    async (requestId) => {
+      const { error } = await supabase
+        .from('team_join_requests')
+        .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+        .eq('id', requestId)
+      if (error) throw error
+    },
+    {
+      invalidateTags: [TEAM_JOIN_REQUESTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
   // Get my request status for a specific team
   const getMyRequestStatus = (teamId) => {
-    return myRequests.find(r => r.team_id === teamId)
+    return allData.myRequests?.find(r => r.team_id === teamId)
   }
 
   return {
-    requests,
-    myRequests,
+    requests: allData.requests,
+    myRequests: allData.myRequests,
     loading,
-    refetch: fetchRequests,
+    error,
+    isStale,
+    refetch,
     requestJoin,
     approveRequest,
     rejectRequest,

@@ -2,17 +2,27 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 import { sanitizeName, sanitizeText, sanitizeUrl, sanitizeNumber, sanitizeDate, sanitizeEnum } from '../utils/sanitize'
+import { useCache, useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+// Cache key generators
+const getEventsCacheKey = (statusFilter) => `events_${statusFilter || 'All'}`
+const EVENTS_CACHE_TAG = 'events'
 
 export const useEvents = (statusFilter = 'All') => {
   const { user } = useAuth()
-  const [events, setEvents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const cache = useCache()
 
-  const fetchEvents = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  // Use cached query for fetching
+  const {
+    data: events = [],
+    loading,
+    error,
+    isStale,
+    refetch,
+    updateCache
+  } = useCachedQuery(
+    getEventsCacheKey(statusFilter),
+    async () => {
       // Fetch events, organizers, and their registrations
       let query = supabase
         .from('events')
@@ -51,120 +61,149 @@ export const useEvents = (statusFilter = 'All') => {
         formatted = formatted.filter(e => e.isRegistered)
       }
 
-      setEvents(formatted)
-    } catch (err) {
-      console.error(err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      return formatted
+    },
+    {
+      ttl: 5 * 60 * 1000, // 5 minutes
+      tags: [EVENTS_CACHE_TAG, `events_${statusFilter}`],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false
     }
-  }, [user, statusFilter])
+  )
 
-  useEffect(() => {
-    fetchEvents()
-  }, [fetchEvents])
+  // Mutations with cache invalidation
+  const registerToEvent = useCachedMutation(
+    async (eventId) => {
+      if (!user) throw new Error('User must be authenticated')
+      const { data, error: err } = await supabase
+        .from('registrations')
+        .upsert({
+          event_id: eventId,
+          member_id: user.id,
+          status: 'confirmed',
+          notify: true
+        }, { onConflict: 'event_id,member_id' })
+        .select()
+        .single()
 
-  const registerToEvent = async (eventId) => {
-    if (!user) throw new Error('User must be authenticated')
-    const { data, error: err } = await supabase
-      .from('registrations')
-      .upsert({
-        event_id: eventId,
-        member_id: user.id,
-        status: 'confirmed',
-        notify: true
-      }, { onConflict: 'event_id,member_id' })
-      .select()
-      .single()
-
-    if (err) throw err
-    fetchEvents()
-    return data
-  }
-
-  const cancelRegistration = async (eventId) => {
-    if (!user) throw new Error('User must be authenticated')
-    const { error: err } = await supabase
-      .from('registrations')
-      .update({ status: 'cancelled' })
-      .eq('event_id', eventId)
-      .eq('member_id', user.id)
-
-    if (err) throw err
-    fetchEvents()
-  }
-
-  const toggleNotify = async (eventId, notifyValue) => {
-    if (!user) throw new Error('User must be authenticated')
-    const { error: err } = await supabase
-      .from('registrations')
-      .update({ notify: notifyValue })
-      .eq('event_id', eventId)
-      .eq('member_id', user.id)
-
-    if (err) throw err
-    fetchEvents()
-  }
-
-  const createEvent = async (eventData) => {
-    const safeData = {
-      title: sanitizeName(eventData.title, 255),
-      description: sanitizeText(eventData.description, 5000),
-      location: sanitizeName(eventData.location, 255),
-      venue_link: sanitizeUrl(eventData.venue_link) || null,
-      status: sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled']) || 'upcoming',
-      max_seats: sanitizeNumber(eventData.max_seats, 0, 10000),
-      event_date: sanitizeDate(eventData.event_date),
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
     }
+  )
 
-    const { data, error: err } = await supabase
-      .from('events')
-      .insert({ ...safeData, organiser_id: user?.id })
-      .select()
-      .single()
+  const cancelRegistration = useCachedMutation(
+    async (eventId) => {
+      if (!user) throw new Error('User must be authenticated')
+      const { error: err } = await supabase
+        .from('registrations')
+        .update({ status: 'cancelled' })
+        .eq('event_id', eventId)
+        .eq('member_id', user.id)
 
-    if (err) throw err
-    fetchEvents()
-    return data
-  }
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-  const updateEvent = async (id, eventData) => {
-    const safeData = {}
-    if (eventData.title !== undefined)       safeData.title       = sanitizeName(eventData.title, 255)
-    if (eventData.description !== undefined) safeData.description = sanitizeText(eventData.description, 5000)
-    if (eventData.location !== undefined)    safeData.location    = sanitizeName(eventData.location, 255)
-    if (eventData.venue_link !== undefined)  safeData.venue_link  = sanitizeUrl(eventData.venue_link) || null
-    if (eventData.status !== undefined)      safeData.status      = sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled'])
-    if (eventData.max_seats !== undefined)   safeData.max_seats   = sanitizeNumber(eventData.max_seats, 0, 10000)
-    if (eventData.event_date !== undefined)  safeData.event_date  = sanitizeDate(eventData.event_date)
+  const toggleNotify = useCachedMutation(
+    async (eventId, notifyValue) => {
+      if (!user) throw new Error('User must be authenticated')
+      const { error: err } = await supabase
+        .from('registrations')
+        .update({ notify: notifyValue })
+        .eq('event_id', eventId)
+        .eq('member_id', user.id)
 
-    const { data, error: err } = await supabase
-      .from('events')
-      .update(safeData)
-      .eq('id', id)
-      .select()
-      .single()
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-    if (err) throw err
-    fetchEvents()
-    return data
-  }
+  const createEvent = useCachedMutation(
+    async (eventData) => {
+      const safeData = {
+        title: sanitizeName(eventData.title, 255),
+        description: sanitizeText(eventData.description, 5000),
+        location: sanitizeName(eventData.location, 255),
+        venue_link: sanitizeUrl(eventData.venue_link) || null,
+        status: sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled']) || 'upcoming',
+        max_seats: sanitizeNumber(eventData.max_seats, 0, 10000),
+        event_date: sanitizeDate(eventData.event_date),
+      }
 
-  const deleteEvent = async (id) => {
-    const { error: err } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', id)
+      const { data, error: err } = await supabase
+        .from('events')
+        .insert({ ...safeData, organiser_id: user?.id })
+        .select()
+        .single()
 
-    if (err) throw err
-    fetchEvents()
-  }
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
+
+  const updateEvent = useCachedMutation(
+    async (id, eventData) => {
+      const safeData = {}
+      if (eventData.title !== undefined)       safeData.title       = sanitizeName(eventData.title, 255)
+      if (eventData.description !== undefined) safeData.description = sanitizeText(eventData.description, 5000)
+      if (eventData.location !== undefined)    safeData.location    = sanitizeName(eventData.location, 255)
+      if (eventData.venue_link !== undefined)  safeData.venue_link  = sanitizeUrl(eventData.venue_link) || null
+      if (eventData.status !== undefined)      safeData.status      = sanitizeEnum(eventData.status, ['upcoming', 'ongoing', 'past', 'cancelled'])
+      if (eventData.max_seats !== undefined)   safeData.max_seats   = sanitizeNumber(eventData.max_seats, 0, 10000)
+      if (eventData.event_date !== undefined)  safeData.event_date  = sanitizeDate(eventData.event_date)
+
+      const { data, error: err } = await supabase
+        .from('events')
+        .update(safeData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
+
+  const deleteEvent = useCachedMutation(
+    async (id) => {
+      const { error: err } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id)
+
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENTS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
   return {
     events,
     loading,
     error,
-    refetch: fetchEvents,
+    isStale,
+    refetch,
     registerToEvent,
     cancelRegistration,
     toggleNotify,

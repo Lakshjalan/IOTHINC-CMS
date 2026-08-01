@@ -17,6 +17,7 @@ export const Chat = () => {
   const [deletingMessageId, setDeletingMessageId] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
   const [hoveredMessageId, setHoveredMessageId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const messagesEndRef = useRef(null)
 
   // "departments" are the teams from the departments/teams table
@@ -142,6 +143,7 @@ export const Chat = () => {
   const handleDeleteMessage = async (messageId) => {
     setDeletingMessageId(messageId)
     setDeleteError(null)
+    setConfirmDeleteId(null)
     try {
       await deleteMessage(messageId)
     } catch (err) {
@@ -546,13 +548,15 @@ export const Chat = () => {
         {/* Messages List */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {loading ? (
-             <div className="h-full flex items-center justify-center">
-               <svg className="animate-spin h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24">
-                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                 <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-               </svg>
-             </div>
-          ) : messages.length === 0 ? (
+  <div className="space-y-4 p-6">
+    {[...Array(3)].map((_, i) => (
+      <div key={i} className="flex gap-3 max-w-[80%] opacity-30 animate-pulse">
+        <div className="w-8 h-8 rounded-full bg-surface-container"></div>
+        <div className="flex-1 h-10 rounded-2xl bg-surface-container/30"></div>
+      </div>
+    ))}
+  </div>
+) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-on-surface-variant opacity-60">
               <span className="material-symbols-outlined text-6xl mb-4">forum</span>
               <p>No messages yet. Start the conversation!</p>
@@ -589,10 +593,10 @@ export const Chat = () => {
                       {/* Delete Button - shown on hover for own messages */}
                       {isMe && canDelete && hoveredMessageId === msg.id && !msg.is_deleted && (
                         <button
-                          onClick={() => handleDeleteMessage(msg.id)}
+                          onClick={() => setConfirmDeleteId(msg.id)}
                           disabled={deletingMessageId === msg.id}
                           title={`Delete message (expires in ${timeRemaining.hours}h ${timeRemaining.minutes}m)`}
-                          className="absolute -right-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-on-surface-variant hover:text-error disabled:opacity-50"
+                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-on-surface-variant hover:text-error disabled:opacity-50"
                         >
                           {deletingMessageId === msg.id ? (
                             <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -651,6 +655,54 @@ export const Chat = () => {
           </form>
         </div>
       </section>
+
+      {/* ── Delete Confirmation Modal ─────────────────────── */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant p-6 max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-error text-2xl">delete</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-on-surface text-base">Delete Message</h3>
+                <p className="text-xs text-on-surface-variant">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-on-surface-variant mb-6">
+              Are you sure you want to delete this message? It will be permanently removed for everyone in this conversation.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteMessage(confirmDeleteId)}
+                disabled={deletingMessageId === confirmDeleteId}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-error text-on-error hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-2"
+              >
+                {deletingMessageId === confirmDeleteId ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </main>
   )

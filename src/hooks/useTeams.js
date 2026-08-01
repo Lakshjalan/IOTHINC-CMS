@@ -1,18 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
+import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+const TEAMS_CACHE_TAG = 'teams'
 
 export const useTeams = () => {
   const { user } = useAuth()
-  const [teams, setTeams] = useState([])
-  const [myTeams, setMyTeams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
-  const fetchTeams = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  // Use cached query for fetching
+  const {
+    data: teamsData = { teams: [], myTeams: [] },
+    loading,
+    error,
+    isStale,
+    refetch,
+    updateCache
+  } = useCachedQuery(
+    'teams_all',
+    async () => {
       const { data, error: fetchErr } = await supabase
         .from('teams')
         .select(`
@@ -36,84 +42,105 @@ export const useTeams = () => {
         }
       })
 
-      setTeams(formatted)
-      setMyTeams(formatted.filter(t => t.isMember))
-    } catch (err) {
-      console.error(err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [user])
-
-  useEffect(() => {
-    fetchTeams()
-  }, [fetchTeams])
-
-  const createTeam = async (name, department, leadId, memberIds) => {
-    try {
-      const { data: team, error: teamErr } = await supabase
-        .from('teams')
-        .insert({ name, department, lead_id: leadId, status: 'active' })
-        .select()
-        .single()
-
-      if (teamErr) throw teamErr
-
-      const uniqueMembers = Array.from(new Set([leadId, ...memberIds].filter(Boolean)))
-      if (uniqueMembers.length > 0) {
-        const memberRows = uniqueMembers.map(memberId => ({ team_id: team.id, member_id: memberId }))
-        const { error: memErr } = await supabase.from('team_members').insert(memberRows)
-        if (memErr) throw memErr
+      return {
+        teams: formatted,
+        myTeams: formatted.filter(t => t.isMember)
       }
-
-      fetchTeams()
-      return team
-    } catch (err) {
-      console.error('Error creating team:', err)
-      throw err
+    },
+    {
+      ttl: 5 * 60 * 1000, // 5 minutes
+      tags: [TEAMS_CACHE_TAG],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false
     }
-  }
+  )
 
-  const deleteTeam = async (id) => {
-    const { error: err } = await supabase.from('teams').delete().eq('id', id)
-    if (err) throw err
-    fetchTeams()
-  }
+  // Mutations with cache invalidation
+  const createTeam = useCachedMutation(
+    async (name, department, leadId, memberIds) => {
+      try {
+        const { data: team, error: teamErr } = await supabase
+          .from('teams')
+          .insert({ name, department, lead_id: leadId, status: 'active' })
+          .select()
+          .single()
 
-  const removeMember = async (teamId, memberId) => {
-    const { error: err } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('team_id', teamId)
-      .eq('member_id', memberId)
-    if (err) throw err
-    fetchTeams()
-  }
+        if (teamErr) throw teamErr
 
-  const addMember = async (teamId, memberId) => {
-    const { data: existing } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('team_id', teamId)
-      .eq('member_id', memberId)
-      .maybeSingle()
+        const uniqueMembers = Array.from(new Set([leadId, ...memberIds].filter(Boolean)))
+        if (uniqueMembers.length > 0) {
+          const memberRows = uniqueMembers.map(memberId => ({ team_id: team.id, member_id: memberId }))
+          const { error: memErr } = await supabase.from('team_members').insert(memberRows)
+          if (memErr) throw memErr
+        }
 
-    if (existing) return
+        return team
+      } catch (err) {
+        console.error('Error creating team:', err)
+        throw err
+      }
+    },
+    {
+      invalidateTags: [TEAMS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-    const { error: err } = await supabase
-      .from('team_members')
-      .insert({ team_id: teamId, member_id: memberId })
-    if (err) throw err
-    fetchTeams()
-  }
+  const deleteTeam = useCachedMutation(
+    async (id) => {
+      const { error: err } = await supabase.from('teams').delete().eq('id', id)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [TEAMS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
+
+  const removeMember = useCachedMutation(
+    async (teamId, memberId) => {
+      const { error: err } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('member_id', memberId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [TEAMS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
+
+  const addMember = useCachedMutation(
+    async (teamId, memberId) => {
+      const { data: existing } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('member_id', memberId)
+        .maybeSingle()
+
+      if (existing) return
+
+      const { error: err } = await supabase
+        .from('team_members')
+        .insert({ team_id: teamId, member_id: memberId })
+      if (err) throw err
+    },
+    {
+      invalidateTags: [TEAMS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
   return {
-    teams,
-    myTeams,
+    teams: teamsData.teams,
+    myTeams: teamsData.myTeams,
     loading,
     error,
-    refetch: fetchTeams,
+    isStale,
+    refetch,
     createTeam,
     deleteTeam,
     removeMember,

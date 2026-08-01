@@ -2,20 +2,31 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 import { sanitizeName, sanitizeText, sanitizeEnum, sanitizeNumber, sanitizeDate } from '../utils/sanitize'
+import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+// Cache key generators
+const getTasksCacheKey = (statusFilter, user, role) => {
+  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  return `tasks_${statusFilter || 'All'}_${isAdminOrCoordinator ? 'all' : user?.id || 'none'}`
+}
+const TASKS_CACHE_TAG = 'tasks'
 
 export const useTasks = (statusFilter = 'All') => {
   const { user, role } = useAuth()
-  const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
   const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
 
-  const fetchTasks = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-    setError(null)
-    try {
+  // Use cached query for fetching
+  const {
+    data: tasks = [],
+    loading,
+    error,
+    isStale,
+    refetch,
+    updateCache
+  } = useCachedQuery(
+    getTasksCacheKey(statusFilter, user, role),
+    async () => {
+      if (!user) return []
       let query = supabase
         .from('tasks')
         .select(`
@@ -37,103 +48,128 @@ export const useTasks = (statusFilter = 'All') => {
 
       let filtered = data || []
       if (statusFilter && statusFilter !== 'All' && statusFilter !== 'all') {
-  filtered = filtered.filter(t => t.status === statusFilter)
-}
+        filtered = filtered.filter(t => t.status === statusFilter)
+      }
 
-      setTasks(filtered)
-    } catch (err) {
-      console.error(err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      return filtered
+    },
+    {
+      ttl: 2 * 60 * 1000, // 2 minutes (tasks change more frequently)
+      tags: [TASKS_CACHE_TAG],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      enabled: !!user
     }
-  }, [user, role, statusFilter])
+  )
 
-  useEffect(() => {
-    fetchTasks()
-  }, [fetchTasks])
+  // Mutations with cache invalidation
+  const assignTask = useCachedMutation(
+    async (taskData) => {
+      const safeData = {
+        title: sanitizeName(taskData.title, 255),
+        priority: sanitizeEnum(taskData.priority, ['low', 'medium', 'high']) || 'medium',
+        assigned_to: taskData.assigned_to || null,
+        project_id: taskData.project_id || null,
+        event_id: taskData.event_id || null,
+        due_date: sanitizeDate(taskData.due_date),
+        progress: sanitizeNumber(taskData.progress, 0, 100) ?? 0,
+      }
+      const { data, error: err } = await supabase
+        .from('tasks')
+        .insert({ ...safeData, assigned_by: user?.id })
+        .select()
+        .single()
 
-  const assignTask = async (taskData) => {
-    const safeData = {
-      title: sanitizeName(taskData.title, 255),
-      priority: sanitizeEnum(taskData.priority, ['low', 'medium', 'high']) || 'medium',
-      assigned_to: taskData.assigned_to || null,
-      project_id: taskData.project_id || null,
-      event_id: taskData.event_id || null,
-      due_date: sanitizeDate(taskData.due_date),
-      progress: sanitizeNumber(taskData.progress, 0, 100) ?? 0,
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [TASKS_CACHE_TAG],
+      onSuccess: () => refetch()
     }
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .insert({ ...safeData, assigned_by: user?.id })
-      .select()
-      .single()
+  )
 
-    if (err) throw err
-    fetchTasks()
-    return data
-  }
+  const updateTaskProgress = useCachedMutation(
+    async (taskId, progressValue, statusValue) => {
+      const { data, error: err } = await supabase
+        .from('tasks')
+        .update({
+          progress: progressValue,
+          status: statusValue || (progressValue === 100 ? 'completed' : 'in_progress')
+        })
+        .eq('id', taskId)
+        .select()
+        .single()
 
-  const updateTaskProgress = async (taskId, progressValue, statusValue) => {
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .update({ 
-        progress: progressValue, 
-        status: statusValue || (progressValue === 100 ? 'completed' : 'in_progress')
-      })
-      .eq('id', taskId)
-      .select()
-      .single()
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [TASKS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-    if (err) throw err
-    fetchTasks()
-    return data
-  }
+  const toggleTaskCompleted = useCachedMutation(
+    async (taskId, currentStatus) => {
+      const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
+      const newProgress = newStatus === 'completed' ? 100 : 0
+      const { data, error: err } = await supabase
+        .from('tasks')
+        .update({ status: newStatus, progress: newProgress })
+        .eq('id', taskId)
+        .select()
+        .single()
 
-  const toggleTaskCompleted = async (taskId, currentStatus) => {
-    const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
-    const newProgress = newStatus === 'completed' ? 100 : 0
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .update({ status: newStatus, progress: newProgress })
-      .eq('id', taskId)
-      .select()
-      .single()
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [TASKS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-    if (err) throw err
-    fetchTasks()
-    return data
-  }
+  const addAdminComment = useCachedMutation(
+    async (taskId, commentText) => {
+      const safeComment = sanitizeText(commentText, 2000)
+      const { data, error: err } = await supabase
+        .from('tasks')
+        .update({ admin_comment: safeComment })
+        .eq('id', taskId)
+        .select()
+        .single()
 
-  const addAdminComment = async (taskId, commentText) => {
-    const safeComment = sanitizeText(commentText, 2000)
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .update({ admin_comment: safeComment })
-      .eq('id', taskId)
-      .select()
-      .single()
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [TASKS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
-    if (err) throw err
-    fetchTasks()
-    return data
-  }
+  const deleteTask = useCachedMutation(
+    async (taskId) => {
+      const { error: err } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId)
 
-  const deleteTask = async (taskId) => {
-    const { error: err } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId)
-
-    if (err) throw err
-    fetchTasks()
-  }
+      if (err) throw err
+    },
+    {
+      invalidateTags: [TASKS_CACHE_TAG],
+      onSuccess: () => refetch()
+    }
+  )
 
   return {
     tasks,
     loading,
     error,
-    refetch: fetchTasks,
+    isStale,
+    refetch,
     assignTask,
     updateTaskProgress,
     toggleTaskCompleted,

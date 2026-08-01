@@ -8,11 +8,23 @@ export const useChat = (receiverId = null, teamId = null) => {
   const { user } = useAuth()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-
   const chatKey = teamId ? `team_${teamId}` : receiverId ? `dm_${receiverId}` : 'lobby'
+  // Local storage cache key for this chat
+  const cacheKey = `chat_${chatKey}_messages`
 
   const fetchMessages = useCallback(async () => {
     if (!user) return
+    // Try to load from cache first
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        setMessages(parsed)
+        setLoading(false)
+      } catch (e) {
+        console.warn('Failed to parse cached messages', e)
+      }
+    }
     setLoading(true)
 
     try {
@@ -40,12 +52,14 @@ export const useChat = (receiverId = null, teamId = null) => {
       const { data, error } = await query
       if (error) throw error
       setMessages(data || [])
+      // Save to cache
+      localStorage.setItem(cacheKey, JSON.stringify(data || []))
     } catch (err) {
       console.error('Error fetching messages:', err)
     } finally {
       setLoading(false)
     }
-  }, [user, receiverId, teamId])
+  }, [user, receiverId, teamId, cacheKey])
 
   useEffect(() => {
     fetchMessages()

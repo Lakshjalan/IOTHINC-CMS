@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
+import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
+
+const EVENT_TEAMS_CACHE_TAG = 'event_teams'
 
 export const useEventTeams = (eventId) => {
   const { user } = useAuth()
-  const [eventTeams, setEventTeams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
-  const fetchEventTeams = useCallback(async () => {
-    if (!eventId) return
-    setLoading(true)
-    setError(null)
-    try {
+  // Use cached query for fetching
+  const {
+    data: eventTeams = [],
+    loading,
+    error,
+    isStale,
+    refetch,
+    updateCache
+  } = useCachedQuery(
+    `event_teams_${eventId || 'none'}`,
+    async () => {
+      if (!eventId) return []
       const { data, error: fetchErr } = await supabase
         .from('event_teams')
         .select(`
@@ -48,144 +55,190 @@ export const useEventTeams = (eventId) => {
         }
       })
 
-      setEventTeams(formatted)
-    } catch (err) {
-      console.error(err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      return formatted
+    },
+    {
+      ttl: 3 * 60 * 1000, // 3 minutes
+      tags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      enabled: !!eventId
     }
-  }, [eventId, user])
+  )
 
-  useEffect(() => { fetchEventTeams() }, [fetchEventTeams])
+  // Mutations with cache invalidation
+  const createEventTeam = useCachedMutation(
+    async ({ name, description, maxMembers }) => {
+      const { data, error: err } = await supabase
+        .from('event_teams')
+        .insert({ event_id: eventId, name, description, max_members: maxMembers || null, created_by: user?.id })
+        .select()
+        .single()
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Create a new sub-team for this event
-  const createEventTeam = async ({ name, description, maxMembers }) => {
-    const { data, error: err } = await supabase
-      .from('event_teams')
-      .insert({ event_id: eventId, name, description, max_members: maxMembers || null, created_by: user?.id })
-      .select()
-      .single()
-    if (err) throw err
-    await fetchEventTeams()
-    return data
-  }
+  const deleteEventTeam = useCachedMutation(
+    async (teamId) => {
+      const { error: err } = await supabase.from('event_teams').delete().eq('id', teamId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Delete a sub-team
-  const deleteEventTeam = async (teamId) => {
-    const { error: err } = await supabase.from('event_teams').delete().eq('id', teamId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const addMemberToTeam = useCachedMutation(
+    async (eventTeamId, memberId) => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .upsert({ event_team_id: eventTeamId, member_id: memberId, status: 'active' }, { onConflict: 'event_team_id,member_id' })
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Admin: Add a member directly to a sub-team
-  const addMemberToTeam = async (eventTeamId, memberId) => {
-    const { error: err } = await supabase
-      .from('event_team_members')
-      .upsert({ event_team_id: eventTeamId, member_id: memberId, status: 'active' }, { onConflict: 'event_team_id,member_id' })
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const removeMemberFromTeam = useCachedMutation(
+    async (eventTeamId, memberId) => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .delete()
+        .eq('event_team_id', eventTeamId)
+        .eq('member_id', memberId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Admin: Remove a member from a sub-team
-  const removeMemberFromTeam = async (eventTeamId, memberId) => {
-    const { error: err } = await supabase
-      .from('event_team_members')
-      .delete()
-      .eq('event_team_id', eventTeamId)
-      .eq('member_id', memberId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const requestJoinTeam = useCachedMutation(
+    async (eventTeamId, message = '') => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .upsert(
+          { event_team_id: eventTeamId, member_id: user?.id, status: 'pending', request_message: message },
+          { onConflict: 'event_team_id,member_id' }
+        )
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Member: Request to join a sub-team
-  const requestJoinTeam = async (eventTeamId, message = '') => {
-    const { error: err } = await supabase
-      .from('event_team_members')
-      .upsert(
-        { event_team_id: eventTeamId, member_id: user?.id, status: 'pending', request_message: message },
-        { onConflict: 'event_team_id,member_id' }
-      )
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const approveJoinRequest = useCachedMutation(
+    async (eventTeamId, memberId) => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .update({ status: 'active', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+        .eq('event_team_id', eventTeamId)
+        .eq('member_id', memberId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Admin: Approve a join request
-  const approveJoinRequest = async (eventTeamId, memberId) => {
-    const { error: err } = await supabase
-      .from('event_team_members')
-      .update({ status: 'active', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
-      .eq('event_team_id', eventTeamId)
-      .eq('member_id', memberId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const rejectJoinRequest = useCachedMutation(
+    async (eventTeamId, memberId) => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+        .eq('event_team_id', eventTeamId)
+        .eq('member_id', memberId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Admin: Reject a join request
-  const rejectJoinRequest = async (eventTeamId, memberId) => {
-    const { error: err } = await supabase
-      .from('event_team_members')
-      .update({ status: 'rejected', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
-      .eq('event_team_id', eventTeamId)
-      .eq('member_id', memberId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const createEventTask = useCachedMutation(
+    async ({ eventTeamId, title, description, assignedTo, priority, dueDate }) => {
+      const { data, error: err } = await supabase
+        .from('event_tasks')
+        .insert({
+          event_team_id: eventTeamId,
+          event_id: eventId,
+          title,
+          description,
+          assigned_to: assignedTo || null,
+          priority: priority || 'medium',
+          due_date: dueDate || null,
+          created_by: user?.id,
+          status: 'todo'
+        })
+        .select()
+        .single()
+      if (err) throw err
+      return data
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Create a task in a sub-team
-  const createEventTask = async ({ eventTeamId, title, description, assignedTo, priority, dueDate }) => {
-    const { data, error: err } = await supabase
-      .from('event_tasks')
-      .insert({
-        event_team_id: eventTeamId,
-        event_id: eventId,
-        title,
-        description,
-        assigned_to: assignedTo || null,
-        priority: priority || 'medium',
-        due_date: dueDate || null,
-        created_by: user?.id,
-        status: 'todo'
-      })
-      .select()
-      .single()
-    if (err) throw err
-    await fetchEventTeams()
-    return data
-  }
+  const updateTaskStatus = useCachedMutation(
+    async (taskId, status) => {
+      const { error: err } = await supabase
+        .from('event_tasks')
+        .update({ status })
+        .eq('id', taskId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Update task status
-  const updateTaskStatus = async (taskId, status) => {
-    const { error: err } = await supabase
-      .from('event_tasks')
-      .update({ status })
-      .eq('id', taskId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const deleteEventTask = useCachedMutation(
+    async (taskId) => {
+      const { error: err } = await supabase.from('event_tasks').delete().eq('id', taskId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
-  // Delete a task
-  const deleteEventTask = async (taskId) => {
-    const { error: err } = await supabase.from('event_tasks').delete().eq('id', taskId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
-
-  // Assign a task to a member
-  const assignTask = async (taskId, memberId) => {
-    const { error: err } = await supabase
-      .from('event_tasks')
-      .update({ assigned_to: memberId })
-      .eq('id', taskId)
-    if (err) throw err
-    await fetchEventTeams()
-  }
+  const assignTask = useCachedMutation(
+    async (taskId, memberId) => {
+      const { error: err } = await supabase
+        .from('event_tasks')
+        .update({ assigned_to: memberId })
+        .eq('id', taskId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
 
   return {
     eventTeams,
     loading,
     error,
-    refetch: fetchEventTeams,
+    isStale,
+    refetch,
     createEventTeam,
     deleteEventTeam,
     addMemberToTeam,
