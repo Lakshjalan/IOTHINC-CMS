@@ -7,7 +7,7 @@ import React from 'react'
  */
 
 // Base skeleton element with shimmer animation
-const SkeletonBase = ({ className = '', style = {}, ...props }) => (
+export const SkeletonBase = ({ className = '', style = {}, ...props }) => (
   <div
     className={`skeleton-base bg-surface-container-highest animate-pulse rounded ${className}`}
     style={{
@@ -347,6 +347,90 @@ export const StatCardSkeleton = ({ className = '' }) => (
 )
 
 /* ============================================
+   DASHBOARD SKELETON (full page, mirrors the bento grid)
+   ============================================ */
+
+export const DashboardSkeleton = ({ className = '' }) => (
+  <main className={`flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full ${className}`}>
+    {/* Welcome header */}
+    <div className="mb-8">
+      <SkeletonBase className="h-8 w-80 rounded mb-3" />
+      <SkeletonBase className="h-4 w-64 rounded" />
+    </div>
+
+    {/* Stat cards */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {Array.from({ length: 4 }, (_, i) => <StatCardSkeleton key={i} />)}
+    </div>
+
+    {/* Bento grid */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Active Projects (8 cols) */}
+      <div className="lg:col-span-8 bg-surface-container rounded-xl border border-outline-variant shadow-sm flex flex-col">
+        <div className="p-5 border-b border-surface-variant bg-surface-container-low rounded-t-xl flex justify-between items-center">
+          <SkeletonBase className="h-5 w-36 rounded" />
+          <SkeletonBase className="h-7 w-20 rounded-full" />
+        </div>
+        <div className="p-5 flex-1 flex flex-col gap-5">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i}>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-3">
+                  <SkeletonBase className="w-8 h-8 rounded" />
+                  <SkeletonBase className="h-4 w-36 rounded" />
+                </div>
+                <SkeletonBase className="h-3 w-8 rounded" />
+              </div>
+              <SkeletonBase className="w-full h-2 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Upcoming Events (4 cols) */}
+      <div className="lg:col-span-4 bg-surface-container rounded-xl border border-outline-variant shadow-sm flex flex-col">
+        <div className="p-5 border-b border-surface-variant bg-surface-container-low rounded-t-xl">
+          <SkeletonBase className="h-5 w-32 rounded" />
+        </div>
+        <div className="p-4 flex-1 space-y-4">
+          {Array.from({ length: 2 }, (_, i) => (
+            <div key={i} className="flex gap-4 items-center">
+              <SkeletonBase className="w-12 h-12 rounded-lg shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonBase className="h-4 w-3/4 rounded" />
+                <SkeletonBase className="h-3 w-1/2 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Announcements (6 cols) */}
+      <div className="lg:col-span-6 bg-surface-container rounded-xl border border-outline-variant shadow-sm flex flex-col">
+        <div className="p-5 border-b border-surface-variant bg-surface-container-low rounded-t-xl">
+          <SkeletonBase className="h-5 w-32 rounded" />
+        </div>
+        <div className="p-5 space-y-4">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="flex gap-4">
+              <SkeletonBase className="w-2 h-2 mt-2 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonBase className="h-4 w-2/3 rounded" />
+                <SkeletonBase className="h-3 w-full rounded" />
+                <SkeletonBase className="h-3 w-1/3 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Calendar (6 cols) */}
+      <CalendarSkeleton className="lg:col-span-6" />
+    </div>
+  </main>
+)
+
+/* ============================================
    CHART SKELETON
    ============================================ */
 
@@ -456,6 +540,7 @@ export default {
   KanbanSkeleton,
   GridSkeleton,
   DetailPageSkeleton,
+  DashboardSkeleton,
   FormSkeleton,
   AvatarSkeleton,
   StatCardSkeleton,

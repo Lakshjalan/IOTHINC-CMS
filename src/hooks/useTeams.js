@@ -135,8 +135,8 @@ export const useTeams = () => {
   )
 
   return {
-    teams: teamsData.teams,
-    myTeams: teamsData.myTeams,
+    teams: teamsData?.teams || [],
+    myTeams: teamsData?.myTeams || [],
     loading,
     error,
     isStale,

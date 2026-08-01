@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
+import { useDashboard, useDashboardCalendar } from '../hooks/useDashboard'
+import { DashboardSkeleton } from '../components/SkeletonLoaders'
 
 const statCardVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.97 },
@@ -36,140 +37,19 @@ export const Dashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // State Variables
-  const [stats, setStats] = useState({
-    activeProjects: 0,
-    totalMembers: 0,
-    upcomingEvents: 0,
-    competitionDeadlines: 0
-  })
-  const [activeProjectsList, setActiveProjectsList] = useState([])
-  const [upcomingEventsList, setUpcomingEventsList] = useState([])
-  const [announcements, setAnnouncements] = useState([])
+  // Cached dashboard data (stats, active projects, upcoming events, announcements)
+  const { stats, activeProjectsList, upcomingEventsList, announcements, loading } = useDashboard()
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   // Calendar state: which month is being viewed, plus the real events and
-  // competition deadlines that fall in that month.
+  // competition deadlines that fall in that month - cached per month.
   const today = new Date()
   const [calendarMonth, setCalendarMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
-  const [calendarEvents, setCalendarEvents] = useState([])
-  const [calendarDeadlines, setCalendarDeadlines] = useState([])
+  const { calendarEvents, calendarDeadlines, loading: calendarLoading } = useDashboardCalendar(calendarMonth)
 
   // Title Setup
   useEffect(() => {
     document.title = "IOTHINC Management Hub"
-  }, [])
-
-  const fetchDashboardData = async () => {
-    setLoading(true)
-    try {
-      const nowStr = new Date().toISOString()
-
-      // 1. Fetch counts
-      const [projCount, memCount, eventCount, compCount] = await Promise.all([
-        supabase.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('events').select('*', { count: 'exact', head: true }).gt('event_date', nowStr),
-        supabase.from('competitions').select('*', { count: 'exact', head: true }).gt('registration_deadline', nowStr)
-      ])
-
-      setStats({
-        activeProjects: projCount.count || 0,
-        totalMembers: memCount.count || 0,
-        upcomingEvents: eventCount.count || 0,
-        competitionDeadlines: compCount.count || 0
-      })
-
-      // 2. Fetch Active Projects list
-      const { data: projs } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(3)
-      setActiveProjectsList(projs || [])
-
-      // 3. Fetch Upcoming Events list
-      const { data: evts } = await supabase
-        .from('events')
-        .select('*')
-        .gt('event_date', nowStr)
-        .order('event_date', { ascending: true })
-        .limit(2)
-      setUpcomingEventsList(evts || [])
-
-      // 4. Fetch Announcements
-      const { data: anns } = await supabase
-        .from('notifications')
-        .select(`
-          *,
-          sender:profiles!notifications_sender_id_fkey(full_name)
-        `)
-        .eq('type', 'announcement')
-        .order('priority', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(3)
-      setAnnouncements(anns || [])
-
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Fetch real events + competition deadlines for whichever month the
-  // calendar widget is currently showing.
-  const fetchCalendarMonthData = async (monthDate) => {
-    const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
-    const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)
-
-    try {
-      const [{ data: evts, error: evtErr }, { data: comps, error: compErr }] = await Promise.all([
-        supabase
-          .from('events')
-          .select('id, title, event_date')
-          .gte('event_date', monthStart.toISOString())
-          .lt('event_date', monthEnd.toISOString()),
-        supabase
-          .from('competitions')
-          .select('id, title, registration_deadline')
-          .gte('registration_deadline', monthStart.toISOString())
-          .lt('registration_deadline', monthEnd.toISOString())
-      ])
-
-      if (evtErr) throw evtErr
-      if (compErr) throw compErr
-
-      setCalendarEvents(evts || [])
-      setCalendarDeadlines(comps || [])
-    } catch (err) {
-      console.error('Error fetching calendar data:', err)
-      setCalendarEvents([])
-      setCalendarDeadlines([])
-    }
-  }
-
-  useEffect(() => {
-    fetchCalendarMonthData(calendarMonth)
-  }, [calendarMonth])
-
-  useEffect(() => {
-    fetchDashboardData()
-
-    // Real-time listener for dashboard updates
-    const channel = supabase
-      .channel('dashboard_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => fetchDashboardData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchDashboardData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchDashboardData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchDashboardData())
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
   }, [])
 
   // Real calendar grid computed from calendarMonth + the actual events and
@@ -244,14 +124,7 @@ export const Dashboard = () => {
   const calendarDays = buildCalendarDays()
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-        <svg className="animate-spin h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-        </svg>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   return (
@@ -489,7 +362,7 @@ export const Dashboard = () => {
               <button onClick={goToNextMonth} className="p-1 text-on-surface-variant hover:bg-surface-container-high rounded"><span className="material-symbols-outlined text-sm">chevron_right</span></button>
             </div>
           </div>
-          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-4">
+          <div className={`bg-surface-container-lowest rounded-lg border border-outline-variant p-4 transition-opacity duration-200 ${calendarLoading ? 'opacity-50' : 'opacity-100'}`}>
             <div className="grid grid-cols-7 gap-1 text-center mb-2 font-label-caps text-label-caps uppercase text-on-surface-variant">
               <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
             </div>

@@ -286,7 +286,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   } = options
 
   const cache = useCache()
-  const [data, setData] = useState(null)
+  const [data, setData] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isStale, setIsStale] = useState(false)
