@@ -2,29 +2,25 @@ import React, { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useContributions } from '../hooks/useContributions'
-import { supabase } from '../supabaseClient'
+import { useProjects } from '../hooks/useProjects'
+import { useEvents } from '../hooks/useEvents'
+import { useMembers } from '../hooks/useMembers'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
 export const Contributions = () => {
   const { user, role } = useAuth()
   const canManage = (role === 'chairperson' || role === 'vice_chairperson')
   const { contributions, loading, toggleFlagContribution, deleteContribution, refetch } = useContributions()
+  const { projects: projectsList } = useProjects()
+  const { events: eventsList } = useEvents()
+  const { members: membersList } = useMembers()
   const [searchParams] = useSearchParams()
 
   const [filterProject, setFilterProject] = useState(searchParams.get('project_id') || '')
   const [filterEvent, setFilterEvent] = useState(searchParams.get('event_id') || '')
   const [filterMember, setFilterMember] = useState(searchParams.get('member_id') || '')
-  const [projectsList, setProjectsList] = useState([])
-  const [eventsList, setEventsList] = useState([])
-  const [membersList, setMembersList] = useState([])
 
   useEffect(() => { document.title = "Contributions | IOTHINC" }, [])
-
-  useEffect(() => {
-    supabase.from('projects').select('id,title').then(r => setProjectsList(r.data || []))
-    supabase.from('events').select('id,title').then(r => setEventsList(r.data || []))
-    supabase.from('profiles').select('id,full_name').then(r => setMembersList(r.data || []))
-  }, [])
 
   const filtered = (contributions || []).filter(c => {
     if (filterProject && c.project_id !== filterProject) return false

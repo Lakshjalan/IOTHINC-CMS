@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
+import { useCompetitions } from '../hooks/useCompetitions'
+import { useMembers } from '../hooks/useMembers'
 import { getOptimizedImageUrl } from '../utils/imageOptimizer'
 import { useCompetitionPosterUpload } from '../lib/unifiedStorage'
 import { GridSkeleton } from '../components/SkeletonLoaders'
@@ -99,10 +101,10 @@ const CompDetailModal = ({ comp: initialComp, userId, canHost, onClose, onSubmit
     try {
       const { error } = await supabase
         .from('competitions')
-        .update({ competition_link: linkValue || null })
+        .update({ competition_link: linkValue.trim() || null })
         .eq('id', comp.id)
       if (error) throw error
-      setComp(prev => ({ ...prev, competition_link: linkValue }))
+      setComp(prev => ({ ...prev, competition_link: linkValue.trim() || null }))
       setEditingLink(false)
       onRefresh?.()
     } catch (err) {
@@ -617,9 +619,8 @@ export const Competitions = () => {
   const canHost = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
 
-  const [competitions, setCompetitions] = useState([])
-  const [allMembers, setAllMembers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { competitions, loading, submitEntry, deleteCompetition, refetch } = useCompetitions()
+  const { members: allMembers } = useMembers()
   const [activeTab, setActiveTab] = useState('all')
 
   const [showSubmitModal, setShowSubmitModal] = useState(false)
@@ -629,46 +630,22 @@ export const Competitions = () => {
   const [detailComp, setDetailComp] = useState(null)
   const [zoomedPosterUrl, setZoomedPosterUrl] = useState(null)
 
-  const fetchCompetitions = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('competitions')
-        .select(`
-          *,
-          host:profiles!competitions_hosted_by_fkey(full_name),
-          submissions:competition_submissions(id, member_id, team_name, team_members, status, created_at)
-        `)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      setCompetitions(data || [])
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
   useEffect(() => {
     document.title = 'Competitions | IOTHINC'
-    fetchCompetitions()
-    supabase.from('profiles').select('id, full_name, avatar_url, department').order('full_name')
-      .then(({ data }) => setAllMembers(data || []))
   }, [])
 
   const handleSubmitEntry = async ({ teamName, teamMembers }) => {
     if (!targetComp || !user) return
     setSubmitting(true)
     try {
-      const { error } = await supabase.from('competition_submissions').insert({
-        competition_id: targetComp.id,
-        member_id: user.id,
-        team_name: teamName,
-        team_members: teamMembers.length > 0 ? JSON.stringify(teamMembers) : null,
-        status: 'submitted'
+      await submitEntry({
+        competitionId: targetComp.id,
+        teamName,
+        teamMembers
       })
-      if (error) throw error
       alert('Entry submitted successfully!')
       setShowSubmitModal(false)
       setTargetComp(null)
-      fetchCompetitions()
     } catch (err) { alert('Error: ' + err.message) }
     finally { setSubmitting(false) }
   }
@@ -676,9 +653,8 @@ export const Competitions = () => {
   const handleDeleteCompetition = async (id) => {
     if (!window.confirm('Delete this competition? This cannot be undone.')) return
     try {
-      const { error } = await supabase.from('competitions').delete().eq('id', id)
-      if (error) throw error
-      fetchCompetitions()
+      await deleteCompetition(id)
+      setDetailComp(null)
     } catch (err) { alert('Error: ' + err.message) }
   }
 

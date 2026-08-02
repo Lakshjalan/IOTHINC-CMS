@@ -82,12 +82,6 @@ export const CacheProvider = ({
     const isStale = age > entry.ttl * 0.5 // Stale at 50% TTL
 
     if (isExpired) {
-      // Clean up expired entry
-      setCache(prev => {
-        const next = new Map(prev)
-        next.delete(key)
-        return next
-      })
       return null
     }
 
@@ -206,7 +200,7 @@ export const CacheProvider = ({
 
       if (cached) {
         // Was stale, now fresh
-        return { data, fromCache: true, isStale: true }
+        return { data, fromCache: true, isStale: false }
       }
 
       // Was miss, now fresh
@@ -286,12 +280,30 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   } = options
 
   const cache = useCache()
-  const [data, setData] = useState(undefined)
-  const [loading, setLoading] = useState(true)
+  
+  // Synchronously initialize state from cache if entry exists
+  const initialCached = key ? cache.get(key) : null
+  const [data, setData] = useState(initialCached ? initialCached.data : undefined)
+  const [loading, setLoading] = useState(initialCached ? false : true)
   const [error, setError] = useState(null)
-  const [isStale, setIsStale] = useState(false)
+  const [isStale, setIsStale] = useState(initialCached ? initialCached.isStale : false)
   const fetcherRef = useRef(fetcher)
   fetcherRef.current = fetcher
+
+  // Sync state when key changes
+  useEffect(() => {
+    if (!key) return
+    const currentCached = cache.get(key)
+    if (currentCached) {
+      setData(currentCached.data)
+      setLoading(false)
+      setIsStale(currentCached.isStale)
+    } else {
+      setData(undefined)
+      setLoading(true)
+      setIsStale(false)
+    }
+  }, [key, cache])
 
   // Track if component is mounted
   const mountedRef = useRef(true)
@@ -303,7 +315,12 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   const executeFetch = useCallback(async (isBackground = false) => {
     if (!enabled) return
 
-    if (!isBackground) setLoading(true)
+    const currentCached = cache.get(key)
+    const hasData = currentCached || data !== undefined
+
+    if (!isBackground && !hasData) {
+      setLoading(true)
+    }
     setError(null)
 
     try {
@@ -312,7 +329,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
       if (!mountedRef.current) return
 
       setData(result.data)
-      setIsStale(result.isStale)
+      setIsStale(false)
 
       if (result.error) {
         setError(result.error)
@@ -328,26 +345,31 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
         setIsStale(true)
       }
     } finally {
-      if (!isBackground && mountedRef.current) {
+      if (mountedRef.current) {
         setLoading(false)
       }
     }
-  }, [cache, key, ttl, tags, enabled])
+  }, [cache, key, ttl, tags, enabled, data])
 
-  // Initial fetch
+  // Initial fetch / mount revalidation
   useEffect(() => {
-    if (refetchOnMount && enabled) {
-      executeFetch()
-    } else if (!refetchOnMount) {
-      // Just check cache
-      const cached = cache.get(key)
-      if (cached) {
-        setData(cached.data)
-        setIsStale(cached.isStale)
-      }
+    if (!enabled) {
       setLoading(false)
+      return
     }
-  }, [executeFetch, refetchOnMount, enabled, cache, key])
+
+    const cached = cache.get(key)
+    if (cached) {
+      setData(cached.data)
+      setLoading(false)
+      // If refetchOnMount or stale, revalidate silently in background
+      if (refetchOnMount || cached.isStale) {
+        executeFetch(true)
+      }
+    } else if (refetchOnMount) {
+      executeFetch(false)
+    }
+  }, [key, enabled])
 
   // Refetch on window focus
   useEffect(() => {
