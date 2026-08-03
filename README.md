@@ -1,6 +1,6 @@
-# Vanguard-CMS 🚀
+# ColdLava-CMS 🚀
 
-> **Vanguard-CMS** is an all-in-one management platform designed for university clubs, developer communities, and early-stage startups to effortlessly manage members, track project progress, organize meetings, track achievements, and store assets across multi-cloud storage solutions.
+> **ColdLava-CMS** is an all-in-one management platform designed for university clubs, developer communities, and early-stage startups to effortlessly manage members, track project progress, organize meetings, track achievements, and store assets across multi-cloud storage solutions.
 
 ---
 
