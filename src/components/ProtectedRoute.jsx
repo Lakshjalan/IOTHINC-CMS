@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, role, loading } = useAuth()
+  const { user, profile, role, loading } = useAuth()
 
   if (loading) {
     return (
@@ -25,6 +25,11 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/unauthorized" replace />
+  }
+
+  // If user is logged in but their profile is pending admin approval, send to login (where the pending UI is)
+  if (profile?.needs_approval) {
+    return <Navigate to="/login" replace />
   }
 
   return children

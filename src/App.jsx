@@ -141,7 +141,7 @@ const ContributionsRedirect = () => {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   if (loading) return <AuthSplash />
 
@@ -152,7 +152,7 @@ function AppRoutes() {
         <Suspense fallback={<AuthSplash />}><Home /></Suspense>
       } />
       <Route path="/login" element={
-        user
+        (user && profile && !profile.needs_approval)
           ? <Navigate to="/dashboard" replace/>
           : <Suspense fallback={<AuthSplash />}><Login /></Suspense>
       } />
@@ -165,7 +165,7 @@ function AppRoutes() {
         Authenticated layout — AppShell renders ONCE and persists sidebar state.
         Individual pages render inside <Outlet /> via the nested routes below.
       */}
-      <Route element={<AppShell />}>
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/dashboard"          element={<Page><Dashboard /></Page>} />
         <Route path="/members"            element={<Page><Members /></Page>} />
         <Route path="/members/:id"        element={<Page><MemberProfile /></Page>} />

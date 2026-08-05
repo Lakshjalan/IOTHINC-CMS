@@ -119,11 +119,7 @@ export const useMembers = (filters = {}) => {
 
   const deleteMember = useCachedMutation(
     async (id) => {
-      const { error: err } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id)
-
+      const { error: err } = await supabase.rpc('delete_user_account', { target_user_id: id })
       if (err) throw err
     },
     {

@@ -33,7 +33,10 @@ export const AdminPanel = () => {
 
   const handleReject = async (id) => {
     if (!confirm('Delete this profile permanently?')) return
-    await supabase.from('profiles').delete().eq('id', id)
+    const { error } = await supabase.rpc('delete_user_account', { target_user_id: id })
+    if (error) {
+      alert("Failed to delete user: " + error.message)
+    }
     fetchPending()
   }
 

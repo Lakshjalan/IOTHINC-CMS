@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../supabaseClient'
 import { IothincLogo } from '../assets/IothincLogo'
 
 export const Login = () => {
   const navigate = useNavigate()
-  const { signIn, signUp, user } = useAuth()
+  const { signIn, signUp, signOut, user, profile, refreshProfile } = useAuth()
+  const [isApproved, setIsApproved] = useState(false)
   
   // Title Setup
   useEffect(() => {
@@ -14,10 +16,34 @@ export const Login = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (user && profile && !profile.needs_approval) {
       navigate('/dashboard')
     }
-  }, [user, navigate])
+  }, [user, profile, navigate])
+
+  // Listen for admin approval via Supabase Realtime
+  useEffect(() => {
+    let subscription;
+    if (user && profile && profile.needs_approval) {
+      subscription = supabase
+        .channel(`public:profiles:id=eq.${user.id}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        }, (payload) => {
+          if (payload.new && payload.new.needs_approval === false) {
+            setIsApproved(true);
+            refreshProfile();
+          }
+        })
+        .subscribe()
+    }
+    return () => {
+      if (subscription) supabase.removeChannel(subscription)
+    }
+  }, [user, profile, refreshProfile])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,9 +67,7 @@ export const Login = () => {
         // Sign Up Mode
         if (!fullName.trim()) throw new Error("Full name is required")
         await signUp(email, password, fullName)
-        setSuccess(true)
-        alert("Registration request submitted! Your account is pending administrator approval.")
-        setIsRegisterMode(false)
+        // UI will automatically transition to the waiting screen because user & profile will be set
       } else {
         // Sign In Mode
         await signIn(email, password)
@@ -58,6 +82,54 @@ export const Login = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (user && profile && profile.needs_approval) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-[#0A0A0C] text-white p-8">
+        <div className="absolute inset-0 grid-overlay pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/10 blur-[120px] rounded-full pointer-events-none"></div>
+        <div className="max-w-md w-full text-center relative z-10">
+          <div className="mb-12 flex justify-center">
+            <IothincLogo alt="IOTHINC Logo" className="w-[180px] h-auto text-white" />
+          </div>
+          
+          {isApproved ? (
+            <div className="bg-success/10 border border-success/30 rounded-base p-8 success-shadow">
+              <span className="material-symbols-outlined text-5xl text-success mb-4">check_circle</span>
+              <h2 className="text-2xl font-bold mb-3 font-syne">Account Approved!</h2>
+              <p className="text-muted mb-8 text-sm">Your account has been approved by the administrator. You can log in now.</p>
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="w-full h-[48px] bg-primary text-white font-bold rounded-base btn-shadow hover:brightness-110 active:scale-[0.99] transition-all"
+              >
+                Continue to Dashboard
+              </button>
+            </div>
+          ) : (
+            <div className="bg-surface-container-high border border-white/10 rounded-base p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500/50">
+                <div className="h-full bg-amber-500 w-1/3 animate-[slide_2s_ease-in-out_infinite_alternate]"></div>
+              </div>
+              <span className="material-symbols-outlined text-5xl text-amber-500 mb-4 animate-pulse">pending</span>
+              <h2 className="text-2xl font-bold mb-3 font-syne">Request Sent</h2>
+              <p className="text-muted text-sm leading-relaxed mb-8">
+                Your request is sent to the admin and you will be log in when the admin approves.
+              </p>
+              <div className="flex justify-center mb-6">
+                <div className="w-8 h-8 border-3 border-white/10 border-t-amber-500 rounded-full animate-spin"></div>
+              </div>
+              <button 
+                onClick={signOut}
+                className="text-xs text-muted hover:text-white transition-colors"
+              >
+                Sign out or use a different account
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+    )
   }
 
   return (
