@@ -239,7 +239,6 @@ export const Chat = () => {
       const breaker = getCircuitBreaker('gemini-summarizer', {
         failureThreshold: 3,
         recoveryTimeout: 10000,
-        requestTimeout: 8000, // Summarization can take some time, let's give it 8s
         concurrencyLimit: 2
       });
 
