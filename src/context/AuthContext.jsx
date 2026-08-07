@@ -116,10 +116,17 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signUp = async (email, password, fullName) => {
+    const redirectTo = typeof window !== 'undefined' && window.location.origin
+      ? `${window.location.origin}/login`
+      : 'https://iothincvitc.in/login'
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } }
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: redirectTo
+      }
     })
     if (error) throw error
     return data

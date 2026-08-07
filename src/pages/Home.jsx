@@ -81,10 +81,10 @@ export const Home = () => {
 
   const previewProjects = [
     {
-      title: 'Distributed Air Quality Mesh',
+      title: 'Robo Soccer',
       type: 'Project',
       category: 'Embedded Systems',
-      desc: 'A sensor network deployed across the campus using ESP32 nodes and LoRa gateway communicating real-time telemetry.'
+      desc: 'A DIY car powered by microcontroller and robust software deployed in a mini soccer arena'
     },
     {
       title: 'IoT Edge Gateway Dashboard',
