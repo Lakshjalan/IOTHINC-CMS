@@ -83,7 +83,7 @@ export const useDashboard = () => {
       }
     },
     {
-      ttl: 2 * 60 * 1000, // 2 minutes - dashboard data should feel fresh
+      ttl: 30 * 60 * 1000, // 30 minutes — dashboard refreshes more often
       tags: [DASHBOARD_CACHE_TAG, 'projects', 'members', 'events', 'notifications'],
       refetchOnMount: true,
       refetchOnWindowFocus: false
@@ -154,7 +154,7 @@ export const useDashboardCalendar = (monthDate) => {
       return { events: evts || [], deadlines: comps || [] }
     },
     {
-      ttl: 5 * 60 * 1000, // 5 minutes
+      ttl: 60 * 60 * 1000, // 1 hour
       tags: [DASHBOARD_CACHE_TAG, 'events', 'competitions'],
       refetchOnMount: true,
       refetchOnWindowFocus: false

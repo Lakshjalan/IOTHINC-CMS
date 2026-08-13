@@ -30,7 +30,7 @@ export const useScheduler = () => {
       return data || { busy_mask: '000000000000000000000000000000000000000000000000000000000000', updated_at: null, isNew: true }
     },
     {
-      ttl: 5 * 60 * 1000, // 5 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [SCHEDULER_CACHE_TAG, `my_schedule_${user?.id}`],
       refetchOnMount: true,
       refetchOnWindowFocus: false,
@@ -116,7 +116,7 @@ export const useScheduler = () => {
       }
     },
     {
-      ttl: 3 * 60 * 1000,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [SCHEDULER_CACHE_TAG],
       enabled: false // Called manually
     }
@@ -164,7 +164,7 @@ export const useScheduler = () => {
       }
     },
     {
-      ttl: 5 * 60 * 1000,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [SCHEDULER_CACHE_TAG],
       enabled: false // Called manually
     }

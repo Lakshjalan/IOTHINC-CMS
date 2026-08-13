@@ -39,11 +39,13 @@ const NewContribution = lazy(() => import('./pages/NewContribution').then(m => (
 const ProgressTrackerMember = lazy(() => import('./pages/ProgressTrackerMember').then(m => ({ default: m.ProgressTrackerMember })))
 const ProgressTrackerAdmin  = lazy(() => import('./pages/ProgressTrackerAdmin').then(m => ({ default: m.ProgressTrackerAdmin })))
 const AdminPanel     = lazy(() => import('./pages/AdminPanel').then(m => ({ default: m.AdminPanel })))
+const AdminBlogs     = lazy(() => import('./pages/AdminBlogs').then(m => ({ default: m.AdminBlogs })))
 const Chat           = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })))
 const Leadership     = lazy(() => import('./pages/Leadership').then(m => ({ default: m.Leadership })))
 const Meetings       = lazy(() => import('./pages/Meetings').then(m => ({ default: m.Meetings })))
 const Scheduler      = lazy(() => import('./pages/Scheduler').then(m => ({ default: m.Scheduler })))
 const StorageDashboard = lazy(() => import('./pages/StorageDashboard').then(m => ({ default: m.StorageDashboard })))
+const BlogRead       = lazy(() => import('./pages/BlogRead').then(m => ({ default: m.BlogRead })))
 
 import { motion, AnimatePresence } from 'motion/react'
 
@@ -149,7 +151,16 @@ function AppRoutes() {
     <Routes>
       {/* Public */}
       <Route path="/" element={
-        <Suspense fallback={<AuthSplash />}><Home /></Suspense>
+        <>
+          <Navbar />
+          <Suspense fallback={<PageSkeleton />}><Home /></Suspense>
+        </>
+      } />
+      <Route path="/blog/:id" element={
+        <>
+          <Navbar />
+          <Suspense fallback={<PageSkeleton />}><BlogRead /></Suspense>
+        </>
       } />
       <Route path="/login" element={
         (user && profile && !profile.needs_approval)
@@ -185,6 +196,7 @@ function AppRoutes() {
         <Route path="/progress"           element={<Page><ProgressTrackerMember /></Page>} />
         <Route path="/progress/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
         <Route path="/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
+        <Route path="/admin/blogs" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminBlogs /></Page>} />
         <Route path="/storage" element={<Page allowedRoles={['chairperson','vice_chairperson']}><StorageDashboard /></Page>} />
         <Route path="/chat"               element={<Page><Chat /></Page>} />
         <Route path="/leadership"         element={<Page><Leadership /></Page>} />
@@ -200,7 +212,7 @@ function AppRoutes() {
 
 function App() {
   return (
-    <CacheProvider defaultTTL={5 * 60 * 1000} persistToStorage={true}>
+    <CacheProvider defaultTTL={24 * 60 * 60 * 1000} persistToStorage={true}>
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>

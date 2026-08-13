@@ -39,7 +39,7 @@ export const useProgress = (memberId = null) => {
       return data || []
     },
     {
-      ttl: 3 * 60 * 1000, // 3 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [PROGRESS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false,
@@ -159,7 +159,7 @@ export const useAllMembersProgress = () => {
       })
     },
     {
-      ttl: 3 * 60 * 1000, // 3 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [PROGRESS_CACHE_TAG, 'members'],
       refetchOnMount: true,
       refetchOnWindowFocus: false

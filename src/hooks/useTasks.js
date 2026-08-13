@@ -54,7 +54,7 @@ export const useTasks = (statusFilter = 'All') => {
       return filtered
     },
     {
-      ttl: 2 * 60 * 1000, // 2 minutes (tasks change more frequently)
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [TASKS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false,

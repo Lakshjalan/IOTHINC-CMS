@@ -86,12 +86,7 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
     { name: 'Scheduler', path: '/scheduler', icon: 'edit_calendar' },
     { name: 'Learn', path: '/learn', icon: 'school' },
     { name: 'Reports', path: reportsPath, icon: 'assessment' },
-    {
-      name: 'Storage Monitor',
-      path: '/storage',
-      icon: 'storage',
-      isChairOnly: true
-    },
+
     {
       name: 'Admin Panel',
       path: '/admin',

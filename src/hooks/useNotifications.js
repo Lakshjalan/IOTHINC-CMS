@@ -38,7 +38,7 @@ export const useNotifications = () => {
       return data || []
     },
     {
-      ttl: 2 * 60 * 1000, // 2 minutes (notifications change frequently)
+      ttl: 10 * 60 * 1000, // 10 minutes — notifications refresh more often
       tags: [NOTIFICATIONS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: true, // Refetch on focus for notifications

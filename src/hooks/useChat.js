@@ -104,7 +104,7 @@ export const useChat = (receiverId = null, teamId = null) => {
     return () => { supabase.removeChannel(channel) }
   }, [fetchMessages, receiverId, teamId, user, chatKey])
 
-  const sendMessage = async (content) => {
+  const sendMessage = async (content, replyTo = null) => {
     if (!user || !content.trim()) return
 
     // Sanitize: trim, strip control characters, cap length
@@ -117,6 +117,11 @@ export const useChat = (receiverId = null, teamId = null) => {
         content: safeContent,
         receiver_id: teamId ? null : receiverId,
         team_id: teamId || null,
+        ...(replyTo ? {
+          reply_to_id: replyTo.id,
+          reply_to_text: replyTo.content,
+          reply_to_sender_name: replyTo.senderName || replyTo.sender?.full_name || 'User'
+        } : {})
       }
 
       const { error } = await supabase.from('messages').insert(insertData)

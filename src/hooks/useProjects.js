@@ -36,7 +36,7 @@ export const useProjects = (filters = {}) => {
       return data || []
     },
     {
-      ttl: 5 * 60 * 1000, // 5 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [PROJECTS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false

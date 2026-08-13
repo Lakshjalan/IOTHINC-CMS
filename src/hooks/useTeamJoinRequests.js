@@ -44,7 +44,7 @@ export const useTeamJoinRequests = () => {
       }
     },
     {
-      ttl: 2 * 60 * 1000, // 2 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [TEAM_JOIN_REQUESTS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProjects } from '../hooks/useProjects'
 import { useAuth } from '../hooks/useAuth'
+import { useProjectLogoUpload } from '../lib/unifiedStorage'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
 const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '' }
@@ -23,8 +24,11 @@ export const Projects = () => {
   // New Project Modal state
   const [showNewModal, setShowNewModal] = useState(false)
   const [newForm, setNewForm] = useState(EMPTY_FORM)
+  const [newLogo, setNewLogo] = useState(null)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
+  const uploadProjectLogo = useProjectLogoUpload()
+  const { user } = useAuth()
 
   // Auto-open new project modal if URL has ?new=true
   useEffect(() => {
@@ -72,9 +76,15 @@ export const Projects = () => {
     setCreating(true)
     setCreateError(null)
     try {
-      await createProject({ ...newForm, progress: 0 })
+      let imageUrl = null
+      if (newLogo) {
+        const uploadResult = await uploadProjectLogo(newLogo, user?.id)
+        imageUrl = uploadResult.url
+      }
+      await createProject({ ...newForm, progress: 0, image_url: imageUrl })
       setShowNewModal(false)
       setNewForm(EMPTY_FORM)
+      setNewLogo(null)
     } catch (err) {
       setCreateError(err.message)
     } finally {
@@ -164,6 +174,15 @@ export const Projects = () => {
                   onChange={e => setNewForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Smart Home Dashboard"
                   className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-label-caps uppercase text-on-surface-variant mb-1.5">Project Logo</label>
+                <input
+                  type="file" accept="image/*"
+                  onChange={e => setNewLogo(e.target.files[0])}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                 />
               </div>
 

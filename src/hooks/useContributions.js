@@ -61,7 +61,7 @@ export const useContributions = (filters = {}) => {
       return filtered
     },
     {
-      ttl: 5 * 60 * 1000, // 5 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [CONTRIBUTIONS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false
@@ -184,7 +184,7 @@ export const useContributions = (filters = {}) => {
       return data
     },
     {
-      ttl: 2 * 60 * 1000,
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [CONTRIBUTIONS_CACHE_TAG],
       enabled: false // We'll call this manually
     }

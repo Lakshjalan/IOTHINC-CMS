@@ -11,8 +11,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
  * - Cache tags for granular invalidation
  */
 
-const DEFAULT_TTL = 5 * 60 * 1000 // 5 minutes
-const MAX_CACHE_SIZE = 100 // Maximum number of cache entries
+const DEFAULT_TTL = 24 * 60 * 60 * 1000 // 24 hours — data persists until mutation invalidation
+const MAX_CACHE_SIZE = 500 // Maximum number of cache entries
 
 // Create the cache context
 const CacheContext = createContext(null)
@@ -79,7 +79,7 @@ export const CacheProvider = ({
     const now = Date.now()
     const age = now - entry.timestamp
     const isExpired = age > entry.ttl
-    const isStale = age > entry.ttl * 0.5 // Stale at 50% TTL
+    const isStale = age > entry.ttl * 0.8 // Stale at 80% TTL — avoids premature background refetches
 
     if (isExpired) {
       return null

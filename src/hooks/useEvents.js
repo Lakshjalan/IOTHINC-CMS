@@ -64,7 +64,7 @@ export const useEvents = (statusFilter = 'All') => {
       return formatted
     },
     {
-      ttl: 5 * 60 * 1000, // 5 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [EVENTS_CACHE_TAG, `events_${statusFilter}`],
       refetchOnMount: true,
       refetchOnWindowFocus: false

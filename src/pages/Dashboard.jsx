@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { IothincLogo } from '../assets/IothincLogo'
 import { motion } from 'motion/react'
 import { useAuth } from '../hooks/useAuth'
 import { useDashboard, useDashboardCalendar } from '../hooks/useDashboard'
@@ -261,8 +262,12 @@ export const Dashboard = () => {
                 <motion.div key={project.id} custom={index} initial="hidden" animate="visible" variants={listItemVariants} className="group">
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-secondary group-hover:bg-primary-container/10 group-hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined text-sm">code</span>
+                      <div className="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-secondary group-hover:bg-primary-container/10 group-hover:text-primary transition-colors overflow-hidden">
+                        {project.image_url ? (
+                          <img src={project.image_url} alt={project.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <IothincLogo className="w-5 h-auto text-secondary group-hover:text-primary transition-colors" />
+                        )}
                       </div>
                       <span className="font-body-sm text-body-sm font-semibold text-on-surface">
                         {project.title}

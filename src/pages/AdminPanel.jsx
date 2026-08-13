@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useContributions } from '../hooks/useContributions'
@@ -6,9 +7,10 @@ import { supabase } from '../supabaseClient'
 import { TableSkeleton } from '../components/SkeletonLoaders'
 
 export const AdminPanel = () => {
-  const { role } = useAuth()
+  const { user, role } = useAuth()
   const { sendNotification } = useNotifications()
   const { contributions, refetch: refetchContribs, toggleFlagContribution, deleteContribution } = useContributions()
+
 
   const [pendingProfiles, setPendingProfiles] = useState([])
   const [loadingPending, setLoadingPending] = useState(true)
@@ -58,12 +60,24 @@ export const AdminPanel = () => {
     setSending(false)
   }
 
+
+
   if (!['chairperson', 'vice_chairperson', 'department_lead'].includes(role)) return <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full"><div className="text-center text-error text-lg mt-20">Access denied. Restricted Area.</div></main>
 
   return (
     <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full">
-      <h2 className="font-headline-xl text-headline-xl text-on-surface mb-2">Admin Panel</h2>
-      <p className="font-body-md text-body-md text-on-surface-variant mb-8">Manage approvals, broadcast notifications, and moderate content.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div>
+          <h2 className="font-headline-xl text-headline-xl text-on-surface mb-2">Admin Panel</h2>
+          <p className="font-body-md text-body-md text-on-surface-variant">Manage approvals, broadcast notifications, and moderate content.</p>
+        </div>
+        {role === 'chairperson' && (
+          <Link to="/storage" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg font-bold font-label-caps text-xs uppercase transition-colors shrink-0">
+            <span className="material-symbols-outlined text-[18px]">storage</span>
+            Manage Storage
+          </Link>
+        )}
+      </div>
 
       <div className="space-y-8">
         {/* Pending Approvals */}
@@ -126,6 +140,16 @@ export const AdminPanel = () => {
               ))}
             </div>
           )}
+        </section>
+
+        {/* Blog Management */}
+        <section className="bg-surface-container rounded-xl border border-outline-variant p-6 shadow-sm">
+          <h3 className="font-headline-lg text-headline-lg text-on-surface mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">article</span>Blog Management</h3>
+          <p className="text-sm text-on-surface-variant mb-4">Create new blogs, edit existing ones, or remove outdated posts.</p>
+          <Link to="/admin/blogs" className="px-5 py-2.5 bg-primary text-on-primary rounded-lg font-bold font-label-caps text-xs uppercase hover:brightness-110 transition-all inline-flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">manage_search</span>
+            Manage Blogs
+          </Link>
         </section>
       </div>
     </main>

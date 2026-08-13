@@ -73,6 +73,7 @@ create table public.projects (
   progress integer default 0 check (progress >= 0 and progress <= 100),
   deadline date,
   team_id uuid references public.teams(id) on delete set null,
+  image_url text,
   created_at timestamptz default now()
 );
 
@@ -176,6 +177,18 @@ create table public.learning_resources (
 -- Run this in Supabase SQL Editor or create via Dashboard > Storage:
 -- insert into storage.buckets (id, name, public) values ('learning-resources', 'learning-resources', true);
 
+-- TABLE: blogs
+create table public.blogs (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  content text not null,
+  image_url text,
+  author_id uuid references public.profiles(id) on delete set null,
+  published boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- Helper function (defined AFTER tables exist)
 create or replace function public.get_my_role()
 returns text as $$
@@ -196,6 +209,16 @@ alter table public.notifications enable row level security;
 alter table public.competitions enable row level security;
 alter table public.competition_submissions enable row level security;
 alter table public.learning_resources enable row level security;
+alter table public.blogs enable row level security;
+
+-- blogs
+create policy "Read published blogs"
+  on public.blogs for select
+  using (published = true or public.get_my_role() in ('chairperson', 'vice_chairperson', 'department_lead') or auth.uid() = author_id);
+
+create policy "Manage blogs"
+  on public.blogs for all
+  using (public.get_my_role() in ('chairperson', 'vice_chairperson', 'department_lead'));
 
 -- profiles
 create policy "Authenticated users can read all profiles"
@@ -344,6 +367,9 @@ create table public.messages (
   receiver_id uuid references public.profiles(id) on delete cascade,
   content text not null,
   is_read boolean default false,
+  reply_to_id uuid references public.messages(id) on delete set null,
+  reply_to_text text,
+  reply_to_sender_name text,
   created_at timestamptz default now()
 );
 

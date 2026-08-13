@@ -116,11 +116,25 @@ export const STORAGE_ROUTES = {
 
   'document': {
     provider: 'uploadthing',
-    fallback: 'supabase',
-    bucket: 'documents',
-    path: 'documents',
+    path: 'docs',
     maxSize: 50 * 1024 * 1024, // 50MB
     description: 'General documents - Uploadthing primary'
+  },
+  'blog-cover': {
+    provider: 'uploadthing',
+    fallback: 'supabase',
+    bucket: 'blog-covers',
+    path: 'images',
+    maxSize: 10 * 1024 * 1024, // 10MB
+    description: 'Blog cover photos - Uploadthing primary, Supabase fallback'
+  },
+  'project-logo': {
+    provider: 'uploadthing',
+    fallback: 'supabase',
+    bucket: 'project-logos',
+    path: 'images',
+    maxSize: 5 * 1024 * 1024, // 5MB
+    description: 'Project logos - Uploadthing primary, Supabase fallback'
   },
 
   // ┌─────────────────────────────────────────────────────────────┐
@@ -161,6 +175,8 @@ export const STORAGE_ROUTES = {
     'competition-poster': ['cloudinary', 'supabase'],
     'learning-resource': ['uploadthing', 'b2'], // Replicate to B2 for durability
     'meeting-recording': ['uploadthing', 'b2'],
+    'blog-cover': ['uploadthing', 'supabase'],
+    'project-logo': ['uploadthing', 'supabase']
   }
 }
 
@@ -817,6 +833,28 @@ export const useDocumentUpload = () => {
 
   return async (file, userId, type = 'document') => {
     return storage.upload(type, file, { userId })
+  }
+}
+
+/**
+ * Hook for blog covers
+ */
+export const useBlogCoverUpload = () => {
+  const storage = new UnifiedStorage()
+
+  return async (file, userId) => {
+    return storage.upload('blog-cover', file, { userId })
+  }
+}
+
+/**
+ * Hook for project logos
+ */
+export const useProjectLogoUpload = () => {
+  const storage = new UnifiedStorage()
+
+  return async (file, projectId) => {
+    return storage.upload('project-logo', file, { userId: projectId })
   }
 }
 

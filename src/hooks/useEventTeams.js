@@ -58,7 +58,7 @@ export const useEventTeams = (eventId) => {
       return formatted
     },
     {
-      ttl: 3 * 60 * 1000, // 3 minutes
+      ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
       tags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
       refetchOnMount: true,
       refetchOnWindowFocus: false,

@@ -11,6 +11,20 @@ export const Chat = () => {
   // type: 'lobby' | 'dm' | 'department' | 'event_team'
   const [members, setMembers] = useState([])
   const [myEventTeams, setMyEventTeams] = useState([])
+
+  // Derive IDs for useChat based on active chat
+  const receiverId = activeChat.type === 'dm' ? activeChat.data?.id ?? null : null
+  const teamId =
+    activeChat.type === 'department' || activeChat.type === 'event_team'
+      ? activeChat.data?.id ?? null
+      : null
+
+  // Hook: chat messages
+  const { messages, loading, sendMessage, deleteMessage, canDeleteMessage, getTimeRemainingForDelete } =
+    useChat(receiverId, teamId)
+
+  // Hook: teams/departments
+  const { myTeams: myDepartments } = useTeams()
   const [messageText, setMessageText] = useState('')
   const [showDMs, setShowDMs] = useState(true)
   const [showEventTeams, setShowEventTeams] = useState(true)
@@ -19,123 +33,107 @@ export const Chat = () => {
   const [deleteError, setDeleteError] = useState(null)
   const [hoveredMessageId, setHoveredMessageId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [replyingTo, setReplyingTo] = useState(null)
   const messagesEndRef = useRef(null)
 
-  // "departments" are the teams from the departments/teams table
-  const { myTeams: myDepartments } = useTeams()
-
-  // Determine IDs for useChat
-  const receiverId = activeChat.type === 'dm' ? activeChat.data?.id : null
-  const teamId = (activeChat.type === 'department' || activeChat.type === 'event_team')
-    ? activeChat.data?.id
+  // Derived online-user helpers (computed from the onlineUsers presence array)
+  const globalOnlineCount = onlineUsers.length
+  const getDeptOnlineCount = (dept) => {
+    if (!dept || !dept.members) return 0
+    return onlineUsers.filter(id => dept.members?.some?.(m => m.id === id || m.user_id === id)).length
+  }
+  const isDMOnline = (userId) => !!userId && onlineUsers.includes(userId)
+  // Members who are currently online (shown in "Active Now" strip in sidebar)
+  // Include self at the front so the current user always sees themselves
+  const selfEntry = profile
+    ? { id: user?.id, full_name: profile.full_name, avatar_url: profile.avatar_url, isSelf: true }
     : null
+  const activeMembers = [
+    ...(selfEntry ? [selfEntry] : []),
+    ...members
+      .filter(m => onlineUsers.includes(m.id))
+      .map(m => ({ ...m, isSelf: false }))
+  ]
 
-  const { 
-    messages, 
-    loading, 
-    sendMessage, 
-    deleteMessage, 
-    canDeleteMessage, 
-    getTimeRemainingForDelete 
-  } = useChat(receiverId, teamId)
-
-  // Fetch all other members for DMs
+  // Fetch all members for DM list
   useEffect(() => {
-    const fetchMembers = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, role, department')
-        .neq('id', user?.id)
-        .order('full_name')
-      setMembers(data || [])
-    }
-    if (user) fetchMembers()
+    if (!user) return
+    supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, role, department')
+      .neq('id', user.id)
+      .order('full_name')
+      .then(({ data }) => { if (data) setMembers(data) })
   }, [user])
 
-  // Fetch event teams where I'm an active member
+  // Fetch event teams the current user belongs to
   useEffect(() => {
-    const fetchMyEventTeams = async () => {
-      if (!user) return
-      const { data } = await supabase
-        .from('event_team_members')
-        .select(`
-          event_team_id,
-          status,
-          event_teams(id, name, event_id, events(title))
-        `)
-        .eq('member_id', user.id)
-        .eq('status', 'active')
-      const teams = (data || [])
-        .map(row => row.event_teams)
-        .filter(Boolean)
-      setMyEventTeams(teams)
-    }
-    fetchMyEventTeams()
+    if (!user) return
+    supabase
+      .from('event_team_members')
+      .select(`
+        event_teams (
+          id, name,
+          events ( title )
+        )
+      `)
+      .eq('member_id', user.id)
+      .then(({ data }) => {
+        if (data) setMyEventTeams(data.map(r => r.event_teams).filter(Boolean))
+      })
   }, [user])
 
-  // Subscribe to Presence for Online/Active Members
+  // Supabase Realtime presence — tracks who is online
   useEffect(() => {
     if (!user) return
 
-    const presenceChannel = supabase.channel('online-users')
+    const presenceChannel = supabase.channel('chat_presence', {
+      config: { presence: { key: user.id } }
+    })
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState()
-        // Each presence entry has the payload we tracked: { user_id, department }
-        const allPresences = Object.values(state).flat()
-        const onlineIds = allPresences.map(p => p.user_id).filter(Boolean)
-        setOnlineUsers(onlineIds)
+        const ids = Object.keys(state)
+        setOnlineUsers(ids)
+      })
+      .on('presence', { event: 'join' }, ({ key }) => {
+        setOnlineUsers(prev => prev.includes(key) ? prev : [...prev, key])
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        setOnlineUsers(prev => prev.filter(id => id !== key))
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            user_id: user.id,
-            online_at: new Date().toISOString()
-          })
+          await presenceChannel.track({ user_id: user.id, online_at: new Date().toISOString() })
         }
       })
 
-    return () => {
-      presenceChannel.unsubscribe()
-    }
+    return () => { supabase.removeChannel(presenceChannel) }
   }, [user])
 
-  // Resolve online profiles for Active Now bar
-  const activeMembers = onlineUsers
-    .map(id => {
-      if (id === user?.id) {
-        return { id, full_name: 'You', avatar_url: profile?.avatar_url, role: profile?.role, department: profile?.department, isSelf: true }
-      }
-      return members.find(m => m.id === id)
-    })
-    .filter(Boolean)
-
-  // Count helpers — derived from local members state, NOT from presence payload
-  const globalOnlineCount = activeMembers.length
-
-  const getDeptOnlineCount = (dept) => {
-    // Match by dept.department field (the department name stored on the team/dept object)
-    return activeMembers.filter(m => {
-      const memberDept = m.department // from profiles fetch
-      const channelDept = dept.department || dept.name
-      return memberDept && channelDept && memberDept === channelDept
-    }).length
-  }
-
-  const isDMOnline = (memberId) => onlineUsers.includes(memberId)
-
-  // Scroll to bottom when messages arrive
+  // Clear replying state when switching active chat
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    setReplyingTo(null)
+  }, [activeChat])
+
+  const scrollToMessage = (msgId) => {
+    if (!msgId) return
+    const el = document.getElementById(`msg-${msgId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('ring-2', 'ring-primary', 'rounded-2xl', 'transition-all')
+      setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 2000)
+    }
+  }
 
   const handleSend = async (e) => {
     e.preventDefault()
     if (!messageText.trim()) return
     try {
-      await sendMessage(messageText)
+      await sendMessage(messageText, replyingTo)
       setMessageText('')
+      setReplyingTo(null)
     } catch (err) {
       alert('Failed to send message: ' + err.message)
     }
@@ -300,23 +298,30 @@ export const Chat = () => {
                 {activeMembers.map(act => (
                   <button
                     key={act.id}
+                    title={act.isSelf ? `${act.full_name} (You)` : act.full_name}
                     onClick={() => {
                       if (!act.isSelf) {
                         setActiveChat({ type: 'dm', data: act })
                       }
                     }}
-                    className="flex flex-col items-center shrink-0 w-12 text-center group cursor-pointer"
+                    className={`flex flex-col items-center shrink-0 w-12 text-center group ${act.isSelf ? 'cursor-default' : 'cursor-pointer'}`}
                   >
                     <div className="relative">
                       <img 
                         src={act.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(act.full_name)}`} 
                         alt={act.full_name} 
-                        className="w-9 h-9 rounded-full object-cover border border-outline-variant group-hover:border-primary transition-colors"
+                        className={`w-9 h-9 rounded-full object-cover border-2 transition-colors ${
+                          act.isSelf
+                            ? 'border-primary ring-2 ring-primary/30'
+                            : 'border-outline-variant group-hover:border-primary'
+                        }`}
                       />
                       <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full ring-2 ring-surface animate-pulse" />
                     </div>
-                    <span className="text-[9px] font-medium text-on-surface-variant group-hover:text-primary truncate w-full mt-1">
-                      {act.full_name.split(' ')[0]}
+                    <span className={`text-[9px] font-medium truncate w-full mt-1 ${
+                      act.isSelf ? 'text-primary' : 'text-on-surface-variant group-hover:text-primary'
+                    }`}>
+                      {act.isSelf ? 'You' : act.full_name.split(' ')[0]}
                     </span>
                   </button>
                 ))}
@@ -579,7 +584,8 @@ export const Chat = () => {
               return (
                 <div 
                   key={msg.id} 
-                  className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : ''} group`}
+                  id={`msg-${msg.id}`}
+                  className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : ''} group p-1 transition-all rounded-2xl`}
                   onMouseEnter={() => setHoveredMessageId(msg.id)}
                   onMouseLeave={() => setHoveredMessageId(null)}
                 >
@@ -593,29 +599,68 @@ export const Chat = () => {
                   <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {!isMe && <span className="text-[10px] text-on-surface-variant font-label-caps uppercase ml-1 mb-1">{msg.sender?.full_name}</span>}
                     <div className="flex items-center gap-2">
-                      {/* Delete Button - shown on hover for own messages on the left side of text */}
-                      {isMe && canDelete && hoveredMessageId === msg.id && !msg.is_deleted && (
-                        <button
-                          onClick={() => setConfirmDeleteId(msg.id)}
-                          disabled={deletingMessageId === msg.id}
-                          title={`Delete message (expires in ${timeRemaining.hours}h ${timeRemaining.minutes}m)`}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-black dark:text-white hover:text-error disabled:opacity-50 shrink-0"
-                        >
-                          {deletingMessageId === msg.id ? (
-                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                            </svg>
-                          ) : (
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                      {/* Action buttons on hover */}
+                      {hoveredMessageId === msg.id && !msg.is_deleted && (
+                        <div className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ${isMe ? 'flex-row' : 'flex-row-reverse'}`}>
+                          {/* Reply Button */}
+                          <button
+                            onClick={() => setReplyingTo({
+                              id: msg.id,
+                              senderName: isMe ? 'You' : (msg.sender?.full_name || 'User'),
+                              content: msg.content
+                            })}
+                            title="Reply to message"
+                            className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">reply</span>
+                          </button>
+
+                          {/* Delete Button - for own messages within 48h */}
+                          {isMe && canDelete && (
+                            <button
+                              onClick={() => setConfirmDeleteId(msg.id)}
+                              disabled={deletingMessageId === msg.id}
+                              title={`Delete message (expires in ${timeRemaining.hours}h ${timeRemaining.minutes}m)`}
+                              className="p-1 text-on-surface-variant hover:text-error disabled:opacity-50 transition-colors"
+                            >
+                              {deletingMessageId === msg.id ? (
+                                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                </svg>
+                              ) : (
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              )}
+                            </button>
                           )}
-                        </button>
+                        </div>
                       )}
+
                       <div className={`px-4 py-2.5 text-sm leading-relaxed ${isMe ? 'bg-primary text-on-primary rounded-2xl rounded-tr-sm' : 'bg-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm'}`}>
                         {msg.is_deleted ? (
                           <span className="italic opacity-60">Message deleted</span>
                         ) : (
-                          msg.content
+                          <>
+                            {/* WhatsApp style quoted message preview */}
+                            {msg.reply_to_text && (
+                              <div
+                                onClick={() => scrollToMessage(msg.reply_to_id)}
+                                className={`mb-2 p-2 rounded-xl border-l-4 cursor-pointer transition-all hover:opacity-90 ${
+                                  isMe 
+                                    ? 'bg-black/20 text-on-primary border-white/80' 
+                                    : 'bg-primary/10 text-on-surface border-primary'
+                                }`}
+                              >
+                                <div className={`text-[11px] font-bold truncate ${isMe ? 'text-white' : 'text-primary'}`}>
+                                  {msg.reply_to_sender_name || 'User'}
+                                </div>
+                                <div className="text-xs truncate opacity-90">
+                                  {msg.reply_to_text}
+                                </div>
+                              </div>
+                            )}
+                            <div>{msg.content}</div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -639,29 +684,52 @@ export const Chat = () => {
 
         {/* Input Area */}
         <div className="p-4 bg-surface-container border-t border-outline-variant shrink-0">
-          <form onSubmit={handleSend} className="max-w-4xl mx-auto relative flex items-center">
-            <input 
-              type="text" 
-              value={messageText}
-              onChange={e => setMessageText(e.target.value)}
-              placeholder={
-                activeChat.type === 'lobby'
-                  ? 'Message the Global Lobby…'
-                  : activeChat.type === 'department'
-                  ? `Message #${headerInfo.title}…`
-                  : activeChat.type === 'event_team'
-                  ? `Message team ${headerInfo.title}…`
-                  : `Message ${headerInfo.title}…`
-              }
-              className="w-full bg-surface-container-low text-on-surface placeholder:text-outline border border-outline-variant rounded-full pl-6 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-            />
-            <button 
-              type="submit"
-              disabled={!messageText.trim()}
-              className="absolute right-2 w-10 h-10 bg-primary text-on-primary rounded-full hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-            >
-              <span className="material-symbols-outlined text-[20px] ml-0.5">send</span>
-            </button>
+          <form onSubmit={handleSend} className="max-w-4xl mx-auto flex flex-col gap-2">
+            {/* WhatsApp style reply preview banner */}
+            {replyingTo && (
+              <div className="flex items-center justify-between bg-surface-container-high border-l-4 border-primary rounded-xl px-4 py-2.5 shadow-sm animate-in slide-in-from-bottom-2 duration-150">
+                <div className="flex flex-col min-w-0 pr-3">
+                  <span className="text-xs font-bold text-primary truncate">
+                    {replyingTo.senderName}
+                  </span>
+                  <span className="text-xs text-on-surface-variant truncate">
+                    {replyingTo.content}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="text-on-surface-variant hover:text-on-surface p-1 rounded-full shrink-0 transition-colors"
+                  title="Cancel reply"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+            )}
+            <div className="relative flex items-center w-full">
+              <input 
+                type="text" 
+                value={messageText}
+                onChange={e => setMessageText(e.target.value)}
+                placeholder={
+                  activeChat.type === 'lobby'
+                    ? 'Message the Global Lobby…'
+                    : activeChat.type === 'department'
+                    ? `Message #${headerInfo.title}…`
+                    : activeChat.type === 'event_team'
+                    ? `Message team ${headerInfo.title}…`
+                    : `Message ${headerInfo.title}…`
+                }
+                className="w-full bg-surface-container-low text-on-surface placeholder:text-outline border border-outline-variant rounded-full pl-6 pr-14 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+              />
+              <button 
+                type="submit"
+                disabled={!messageText.trim()}
+                className="absolute right-2 w-10 h-10 bg-primary text-on-primary rounded-full hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+              >
+                <span className="material-symbols-outlined text-[20px] ml-0.5">send</span>
+              </button>
+            </div>
           </form>
         </div>
       </section>

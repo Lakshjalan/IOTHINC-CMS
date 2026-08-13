@@ -14,6 +14,7 @@ import { Envelope } from '@phosphor-icons/react/dist/icons/Envelope'
 import { useTheme } from '../context/ThemeContext'
 import { CircuitHero } from '../components/CircuitHero'
 import { IothincLogo } from '../assets/IothincLogo'
+import { HomeBlogs } from '../components/HomeBlogs'
 
 // Scroll reveal variants
 const revealVariants = {
@@ -421,6 +422,9 @@ export const Home = () => {
           </motion.div>
         </div>
       </motion.section>
+
+      {/* Blogs Section */}
+      <HomeBlogs />
 
       {/* Footer */}
       <footer className="py-12 px-6 md:px-12 border-t border-outline-variant bg-surface-container-lowest">
