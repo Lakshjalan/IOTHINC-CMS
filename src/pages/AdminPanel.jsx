@@ -46,13 +46,13 @@ export const AdminPanel = () => {
     e.preventDefault()
     setSending(true)
     try {
-      await sendNotification({ 
-        target_member_id: null, 
+      await sendNotification({
+        target_member_id: null,
         title: broadcastForm.title,
-        message: broadcastForm.message, 
-        priority: parseInt(broadcastForm.priority), 
+        message: broadcastForm.message,
+        priority: parseInt(broadcastForm.priority),
         type: 'announcement',
-        target_role: broadcastForm.target_role 
+        target_role: broadcastForm.target_role
       })
       alert(`Broadcast sent!`)
       setBroadcastForm({ title: '', message: '', priority: '3', target_role: 'all' })
@@ -109,11 +109,11 @@ export const AdminPanel = () => {
         <section className="bg-surface-container rounded-xl border border-outline-variant p-6 shadow-sm">
           <h3 className="font-headline-lg text-headline-lg text-on-surface mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">campaign</span>Broadcast Notification</h3>
           <form onSubmit={handleBroadcast} className="space-y-4">
-            <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Title</label><input type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({...broadcastForm, title: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary mb-4" placeholder="Announcement Title..." required/></div>
-            <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Message</label><textarea value={broadcastForm.message} onChange={e => setBroadcastForm({...broadcastForm, message: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm h-24 resize-none focus:ring-primary" placeholder="Type your broadcast message..." required/></div>
+            <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Title</label><input type="text" value={broadcastForm.title} onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary mb-4" placeholder="Announcement Title..." required /></div>
+            <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Message</label><textarea value={broadcastForm.message} onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm h-24 resize-none focus:ring-primary" placeholder="Type your broadcast message..." required /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Priority</label><select value={broadcastForm.priority} onChange={e => setBroadcastForm({...broadcastForm, priority: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm"><option value="1">1 — Admin (Highest)</option><option value="2">2 — Coordinator</option><option value="3">3 — Member (Normal)</option></select></div>
-              <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Target</label><select value={broadcastForm.target_role} onChange={e => setBroadcastForm({...broadcastForm, target_role: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm"><option value="all">All Members</option><option value="chairperson">Chairpersons Only</option><option value="vice_chairperson">Vice Chairpersons Only</option><option value="department_lead">Department Leads Only</option><option value="member">Members Only</option></select></div>
+              <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Priority</label><select value={broadcastForm.priority} onChange={e => setBroadcastForm({ ...broadcastForm, priority: e.target.value })} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm"><option value="1">HIGH</option><option value="2">MEDIUM</option><option value="3">LOW</option></select></div>
+              <div><label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Target</label><select value={broadcastForm.target_role} onChange={e => setBroadcastForm({ ...broadcastForm, target_role: e.target.value })} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm"><option value="all">All Members</option><option value="chairperson">Chairpersons Only</option><option value="vice_chairperson">Vice Chairpersons Only</option><option value="department_lead">Department Leads Only</option><option value="member">Members Only</option></select></div>
             </div>
             <div className="flex justify-end"><button type="submit" disabled={sending} className="px-5 py-2.5 bg-primary text-on-primary rounded-lg font-bold font-label-caps text-xs uppercase hover:brightness-110 disabled:opacity-50 transition-all">{sending ? 'Sending...' : 'Send Broadcast'}</button></div>
           </form>
