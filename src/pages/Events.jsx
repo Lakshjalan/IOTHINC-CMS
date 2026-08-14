@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEvents } from '../hooks/useEvents'
+import { useNotifications } from '../hooks/useNotifications'
 import { useAuth } from '../hooks/useAuth'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
@@ -10,6 +11,7 @@ export const Events = () => {
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
   const [statusTab, setStatusTab] = useState('All')
   const { events, loading, createEvent, deleteEvent } = useEvents(statusTab)
+  const { sendNotification } = useNotifications()
   const navigate = useNavigate()
 
   const [showCreate, setShowCreate] = useState(false)
@@ -35,6 +37,14 @@ export const Events = () => {
         event_date: new Date(form.event_date).toISOString(), 
         registration_deadline: form.registration_deadline ? new Date(form.registration_deadline).toISOString() : null 
       })
+      
+      await sendNotification({
+        title: 'New Event Scheduled',
+        message: `A new event "${form.title}" has been created.`,
+        type: 'event',
+        target_role: 'all'
+      })
+
       setShowCreate(false)
       setForm({ title: '', description: '', category: 'WORKSHOP', venue: '', event_date: '', registration_deadline: '', max_seats: '' })
       // Navigate directly to the new event to start adding teams

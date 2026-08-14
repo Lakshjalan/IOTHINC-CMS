@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ListSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 import { useMeetings } from '../hooks/useMeetings'
+import { useNotifications } from '../hooks/useNotifications'
 import { motion, AnimatePresence } from 'motion/react'
 import { Calendar } from '@phosphor-icons/react/dist/icons/Calendar'
 import { VideoCamera } from '@phosphor-icons/react/dist/icons/VideoCamera'
@@ -53,6 +54,8 @@ export const Meetings = () => {
     updateMeeting, 
     deleteMeeting 
   } = useMeetings()
+
+  const { sendNotification } = useNotifications()
 
   // Local states
   const [activeTab, setActiveTab] = useState('upcoming') // 'upcoming' | 'past'
@@ -464,6 +467,12 @@ export const Meetings = () => {
             onSave={async (fields) => {
               try {
                 await createMeeting(fields)
+                await sendNotification({
+                  title: 'New Meeting Scheduled',
+                  message: `A new meeting "${fields.title}" has been scheduled.`,
+                  type: 'event',
+                  target_role: 'all'
+                })
                 setShowScheduleModal(false)
               } catch (err) {
                 alert(err.message)

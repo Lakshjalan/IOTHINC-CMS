@@ -120,27 +120,20 @@ serve(async (req) => {
       const oldRecord = payload.old_record;
       // Trigger when status changes to 'live'
       if (oldRecord && oldRecord.status !== 'live' && record.status === 'live') {
-        // Find all attendees
-        const { data: attendees } = await supabase
-          .from('meeting_attendees')
-          .select(`
-            member_id,
-            profiles(fcm_token)
-          `)
-          .eq('meeting_id', record.id);
+        // Notify everyone that the meeting is live
+        // (Since no one is in meeting_attendees yet when it just started)
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('fcm_token')
+          .not('fcm_token', 'is', null);
 
-        if (attendees && attendees.length > 0) {
-          for (const attendee of attendees) {
-            // Because profiles might return an array if relation is 1-to-many, handle properly
-            // Usually it's an object for 1-to-1 or many-to-1
-            const profile = Array.isArray(attendee.profiles) ? attendee.profiles[0] : attendee.profiles;
-            if (profile?.fcm_token) {
-              notificationsToSend.push({
-                token: profile.fcm_token,
-                title: "Meeting is Live!",
-                body: `The meeting '${record.title}' has started.`
-              });
-            }
+        if (profiles && profiles.length > 0) {
+          for (const profile of profiles) {
+            notificationsToSend.push({
+              token: profile.fcm_token,
+              title: "Meeting is Live!",
+              body: `The meeting '${record.title}' has started. Join now!`
+            });
           }
         }
       }

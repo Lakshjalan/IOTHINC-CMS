@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useTasks } from '../hooks/useTasks'
 import { useAuth } from '../hooks/useAuth'
+import { useNotifications } from '../hooks/useNotifications'
 import { supabase } from '../supabaseClient'
 import { ListSkeleton } from '../components/SkeletonLoaders'
 
@@ -9,6 +10,7 @@ export const Tasks = () => {
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
   const [statusTab, setStatusTab] = useState('all')
   const { tasks, loading, refetch, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab)
+  const { sendNotification } = useNotifications()
 
   const [showAssign, setShowAssign] = useState(false)
   const [members, setMembers] = useState([])
@@ -30,6 +32,18 @@ export const Tasks = () => {
     e.preventDefault()
     try {
       await assignTask({ ...form, due_date: form.due_date ? new Date(form.due_date).toISOString() : null, event_id: form.event_id || null, project_id: form.project_id || null })
+      
+      // Send notification to the assigned member
+      if (form.assigned_to) {
+        await sendNotification({
+          title: 'New Task Assigned',
+          message: `You have been assigned a new task: "${form.title}"`,
+          type: 'task',
+          target_member_id: form.assigned_to,
+          target_role: 'member' // Specific member ID takes precedence
+        })
+      }
+
       setShowAssign(false)
       setForm({ title: '', assigned_to: '', event_id: '', project_id: '', priority: 'medium', due_date: '' })
     } catch (err) { alert(err.message) }

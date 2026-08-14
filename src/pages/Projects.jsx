@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProjects } from '../hooks/useProjects'
+import { useNotifications } from '../hooks/useNotifications'
 import { useAuth } from '../hooks/useAuth'
 import { useProjectLogoUpload } from '../lib/unifiedStorage'
 import { GridSkeleton } from '../components/SkeletonLoaders'
@@ -19,6 +20,7 @@ export const Projects = () => {
   })
   
   const { projects, loading, updateProject, deleteProject, createProject } = useProjects(filters)
+  const { sendNotification } = useNotifications()
   const [viewMode, setViewMode] = useState('board') // 'board' or 'list'
 
   // New Project Modal state
@@ -82,6 +84,14 @@ export const Projects = () => {
         imageUrl = uploadResult.url
       }
       await createProject({ ...newForm, progress: 0, image_url: imageUrl })
+      
+      await sendNotification({
+        title: 'New Project Created',
+        message: `A new project "${newForm.title}" has been created.`,
+        type: 'announcement',
+        target_role: 'all'
+      })
+
       setShowNewModal(false)
       setNewForm(EMPTY_FORM)
       setNewLogo(null)
