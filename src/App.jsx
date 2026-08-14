@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react'
+import React, { Suspense, lazy, useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams, Outlet } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { CacheProvider } from './context/CacheContext'
@@ -7,6 +7,7 @@ import { CacheProvider } from './context/CacheContext'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { setupMessageListener } from './lib/firebase'
 
 /* Error Pages — eager (small, needed immediately on bad routes) */
 import { NotFound } from './pages/NotFound'
@@ -84,6 +85,13 @@ const AuthSplash = () => (
 const AppShell = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Listen for push notifications while the app is open
+  useEffect(() => {
+    const unsubscribe = setupMessageListener();
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />

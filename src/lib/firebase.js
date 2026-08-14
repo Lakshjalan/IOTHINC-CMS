@@ -62,7 +62,15 @@ export const setupMessageListener = () => {
   
   return onMessage(messaging, (payload) => {
     console.log('Message received in foreground: ', payload);
-    // You could show a custom toast notification here if you want
-    // even when the app is open!
+    
+    // Show a native pop-up notification even when the app is open
+    if (Notification.permission === 'granted') {
+      const notificationTitle = payload.notification?.title || 'IOTHINC Update';
+      const notificationOptions = {
+        body: payload.notification?.body,
+        icon: '/vite.svg'
+      };
+      new Notification(notificationTitle, notificationOptions);
+    }
   });
 };
