@@ -11,6 +11,7 @@ create table public.profiles (
   year text,
   skills text[],
   bio text,
+  fcm_token text,
   avatar_url text,
   github_url text,
   linkedin_url text,

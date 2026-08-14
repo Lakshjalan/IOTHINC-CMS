@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient'
 import { motion } from 'motion/react'
 import { IothincLogo } from '../assets/IothincLogo'
 import { prefetchRoute } from '../utils/prefetch'
+import { requestNotificationPermission } from '../lib/firebase'
 
 const navItemVariants = {
   hidden: { opacity: 0, x: -16 },
@@ -20,7 +21,7 @@ let sidebarHasMounted = false
 
 export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenuOpen }) => {
   const location = useLocation()
-  const { role } = useAuth()
+  const { role, user } = useAuth()
   const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '', github_link: '' }
   const [showAddProject, setShowAddProject] = useState(false)
   const [newForm, setNewForm] = useState(EMPTY_FORM)
@@ -39,6 +40,15 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
   ].some(path => currentPath.startsWith(path))
 
   const reportsPath = (['chairperson', 'vice_chairperson', 'department_lead', 'electrical_lead', 'software_lead', 'general_secretary'].includes(role)) ? '/progress/admin' : '/progress'
+
+  const handleEnableNotifications = async () => {
+    const success = await requestNotificationPermission(user?.id);
+    if (success) {
+      alert("Notifications enabled successfully!");
+    } else {
+      alert("Failed to enable notifications. Please ensure you granted permission.");
+    }
+  }
 
   const handleCreateProject = async (e) => {
     e.preventDefault()
@@ -223,6 +233,17 @@ export const Sidebar = ({ collapsed, setCollapsed, mobileMenuOpen, setMobileMenu
               <span className="font-label-caps text-label-caps uppercase">Leadership</span>
             )}
           </Link>
+
+          <button
+            onClick={handleEnableNotifications}
+            className={`flex items-center gap-3 px-3 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-150 rounded-full active:scale-[0.98] ${collapsed ? 'justify-center' : ''}`}
+            title={collapsed ? 'Enable Notifications' : undefined}
+          >
+            <span className="material-symbols-outlined">notifications_active</span>
+            {!collapsed && (
+              <span className="font-label-caps text-label-caps uppercase">Notifications</span>
+            )}
+          </button>
         </div>
       </nav>
 

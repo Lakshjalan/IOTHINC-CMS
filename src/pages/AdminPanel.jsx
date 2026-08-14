@@ -71,7 +71,7 @@ export const AdminPanel = () => {
           <h2 className="font-headline-xl text-headline-xl text-on-surface mb-2">Admin Panel</h2>
           <p className="font-body-md text-body-md text-on-surface-variant">Manage approvals, broadcast notifications, and moderate content.</p>
         </div>
-        {role === 'chairperson' && (
+        {['chairperson', 'vice_chairperson'].includes(role) && (
           <Link to="/storage" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg font-bold font-label-caps text-xs uppercase transition-colors shrink-0">
             <span className="material-symbols-outlined text-[18px]">storage</span>
             Manage Storage
