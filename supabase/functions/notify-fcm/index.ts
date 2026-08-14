@@ -146,6 +146,38 @@ serve(async (req) => {
       }
     }
 
+    // --- LOGIC FOR BROADCAST NOTIFICATIONS ---
+    if (table === 'notifications' && type === 'INSERT') {
+      const title = record.title || "New Announcement";
+      const body = record.message || "You have a new notification in IOTHINC.";
+      
+      if (record.target_member_id) {
+        // Direct notification to a specific member
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('fcm_token')
+          .eq('id', record.target_member_id)
+          .single();
+
+        if (profile?.fcm_token) {
+          notificationsToSend.push({ token: profile.fcm_token, title, body });
+        }
+      } else if (record.target_role) {
+        // Broadcast to a specific role or 'all'
+        let query = supabase.from('profiles').select('fcm_token').not('fcm_token', 'is', null);
+        if (record.target_role !== 'all') {
+          query = query.eq('role', record.target_role);
+        }
+        
+        const { data: profiles } = await query;
+        if (profiles && profiles.length > 0) {
+          for (const profile of profiles) {
+            notificationsToSend.push({ token: profile.fcm_token, title, body });
+          }
+        }
+      }
+    }
+
     // Send the notifications if any exist
     if (notificationsToSend.length > 0) {
       const credentials = getFirebaseCredentials();
