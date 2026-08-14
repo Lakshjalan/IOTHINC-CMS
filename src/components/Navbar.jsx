@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { motion } from 'motion/react'
 import { getOptimizedImageUrl } from '../utils/imageOptimizer'
 import { IothincLogo } from '../assets/IothincLogo'
+import { requestNotificationPermission } from '../lib/firebase'
 
 export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
   const { user, profile, role, signOut } = useAuth()
@@ -25,6 +26,29 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
   const [notifications, setNotifications] = useState([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  
+  const [pushEnabled, setPushEnabled] = useState(Notification.permission === 'granted' && !!profile?.fcm_token)
+
+  const togglePushNotifications = async () => {
+    if (pushEnabled) {
+      // Disable
+      const { error } = await supabase.from('profiles').update({ fcm_token: null }).eq('id', user.id);
+      if (!error) {
+        setPushEnabled(false);
+        alert("Push notifications disabled.");
+      }
+    } else {
+      // Enable
+      const res = await requestNotificationPermission(user?.id);
+      if (res.success) {
+        setPushEnabled(true);
+        alert("Push notifications enabled successfully!");
+      } else {
+        alert(res.error);
+      }
+    }
+  }
+
   // Fetch Notifications
   const fetchNotifications = async () => {
     if (!user) return
@@ -404,6 +428,15 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
                     </div>
                   ))
                 )}
+              </div>
+              <div className="p-4 bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
+                <span className="text-xs font-label-caps uppercase text-on-surface font-bold">Pop-up Notifications</span>
+                <button 
+                  onClick={togglePushNotifications}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${pushEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                >
+                  <span className={`inline-block h-3 w-3 transform rounded-full transition-transform ${pushEnabled ? 'translate-x-5 bg-on-primary' : 'translate-x-1 bg-outline'}`} />
+                </button>
               </div>
             </div>
           )}

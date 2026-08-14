@@ -21,15 +21,13 @@ if (firebaseConfig.apiKey) {
 
 export const requestNotificationPermission = async (userId) => {
   if (!messaging) {
-    console.error("Firebase is not initialized. Check your environment variables.");
-    return false;
+    return { success: false, error: "Firebase is not initialized. Check your environment variables." };
   }
 
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       
-      // We pass the config to the Service Worker via URL params so it doesn't need to be hardcoded
       const swUrl = `/firebase-messaging-sw.js?apiKey=${firebaseConfig.apiKey}&authDomain=${firebaseConfig.authDomain}&projectId=${firebaseConfig.projectId}&storageBucket=${firebaseConfig.storageBucket}&senderId=${firebaseConfig.messagingSenderId}&appId=${firebaseConfig.appId}`;
       const registration = await navigator.serviceWorker.register(swUrl);
 
@@ -39,27 +37,23 @@ export const requestNotificationPermission = async (userId) => {
       });
 
       if (currentToken) {
-        // Save the token to Supabase so we can send notifications to this user
         if (userId) {
           const { error } = await supabase
             .from('profiles')
             .update({ fcm_token: currentToken })
             .eq('id', userId);
             
-          if (error) console.error("Error saving FCM token:", error);
+          if (error) return { success: false, error: "Failed to save token to database: " + error.message };
         }
-        return true;
+        return { success: true };
       } else {
-        console.log('No registration token available. Request permission to generate one.');
-        return false;
+        return { success: false, error: 'No registration token available. Request permission to generate one.' };
       }
     } else {
-      console.log('Notification permission not granted.');
-      return false;
+      return { success: false, error: 'Notification permission not granted by the user.' };
     }
   } catch (error) {
-    console.error('An error occurred while requesting permission. ', error);
-    return false;
+    return { success: false, error: error.message || 'An error occurred while requesting permission.' };
   }
 };
 
