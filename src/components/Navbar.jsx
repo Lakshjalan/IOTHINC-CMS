@@ -27,7 +27,27 @@ export const Navbar = ({ sidebarCollapsed, setMobileMenuOpen }) => {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   
-  const [pushEnabled, setPushEnabled] = useState(Notification.permission === 'granted' && !!profile?.fcm_token)
+  const [pushEnabled, setPushEnabled] = useState(false)
+
+  // Check push notification state from the database on mount.
+  // profile doesn't include fcm_token (it's not in the AuthContext select),
+  // so we query it directly.
+  useEffect(() => {
+    if (!user?.id) return
+    const checkPushState = async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('fcm_token')
+          .eq('id', user.id)
+          .single()
+        setPushEnabled(Notification.permission === 'granted' && !!data?.fcm_token)
+      } catch {
+        // Silently fail — toggle stays off
+      }
+    }
+    checkPushState()
+  }, [user?.id])
 
   const togglePushNotifications = async () => {
     if (pushEnabled) {

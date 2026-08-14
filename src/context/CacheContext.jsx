@@ -126,6 +126,9 @@ export const CacheProvider = ({
     setCache(prev => {
       const next = new Map(prev)
       next.delete(key)
+      // Sync ref immediately so get()/getOrFetch() see the deletion
+      // before React flushes the state update on the next render.
+      cacheRef.current = next
       return next
     })
   }, [])
@@ -142,6 +145,8 @@ export const CacheProvider = ({
           next.delete(key)
         }
       }
+      // Sync ref immediately so get()/getOrFetch() see the deletion
+      cacheRef.current = next
       return next
     })
   }, [])
@@ -165,6 +170,8 @@ export const CacheProvider = ({
           }
         }
       }
+      // Sync ref immediately so get()/getOrFetch() see the deletion
+      cacheRef.current = next
       return next
     })
   }, [])
@@ -289,6 +296,10 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   const [isStale, setIsStale] = useState(initialCached ? initialCached.isStale : false)
   const fetcherRef = useRef(fetcher)
   fetcherRef.current = fetcher
+  // Keep a ref to the latest data so executeFetch always sees the current value
+  // without stale closures, even when data changes between renders.
+  const dataRef = useRef(data)
+  dataRef.current = data
 
   // Sync state when key changes
   useEffect(() => {
@@ -312,11 +323,15 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     return () => { mountedRef.current = false }
   }, [])
 
-  const executeFetch = useCallback(async (isBackground = false) => {
+  const executeFetch = useCallback(async (isBackground = false, forceRefresh = false) => {
     if (!enabled) return
 
     const currentCached = cache.get(key)
-    const hasData = currentCached || data !== undefined
+    // Use dataRef.current so we always see the live data value,
+    // not a stale closure capture. This prevents the skeleton loader
+    // from appearing after a mutation invalidates the cache but the
+    // component's data state still holds the previous list.
+    const hasData = currentCached || dataRef.current !== undefined
 
     if (!isBackground && !hasData) {
       setLoading(true)
@@ -324,7 +339,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     setError(null)
 
     try {
-      const result = await cache.getOrFetch(key, fetcherRef.current, { ttl, tags })
+      const result = await cache.getOrFetch(key, fetcherRef.current, { ttl, tags, forceRefresh })
 
       if (!mountedRef.current) return
 
@@ -349,7 +364,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
         setLoading(false)
       }
     }
-  }, [cache, key, ttl, tags, enabled, data])
+  }, [cache, key, ttl, tags, enabled])
 
   // Initial fetch / mount revalidation
   useEffect(() => {
@@ -383,7 +398,13 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     return () => window.removeEventListener('focus', handleFocus)
   }, [executeFetch, refetchOnWindowFocus])
 
-  const refetch = useCallback(() => executeFetch(false), [executeFetch])
+  // refetch always runs as a background fetch — existing data stays visible,
+  // no skeleton loader. forceRefresh=true guarantees a fresh server fetch
+  // even if the cache invalidation hasn't fully propagated.
+  const refetch = useCallback(() => executeFetch(true, true), [executeFetch])
+  // hardRefetch forces a loading state (shows skeleton). Use for explicit
+  // user-triggered full page reloads where a fresh start is expected.
+  const hardRefetch = useCallback(() => executeFetch(false), [executeFetch])
   const invalidate = useCallback(() => cache.invalidate(key), [cache, key])
 
   /**
@@ -414,6 +435,7 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     error,
     isStale,
     refetch,
+    hardRefetch,
     invalidate,
     getOrFetch,
     // Helper to update cache directly after mutations
