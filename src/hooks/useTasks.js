@@ -5,13 +5,13 @@ import { sanitizeName, sanitizeText, sanitizeEnum, sanitizeNumber, sanitizeDate 
 import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
 
 // Cache key generators
-const getTasksCacheKey = (statusFilter, user, role) => {
+const getTasksCacheKey = (statusFilter, viewFilter, user, role) => {
   const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
-  return `tasks_${statusFilter || 'All'}_${isAdminOrCoordinator ? 'all' : user?.id || 'none'}`
+  return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${isAdminOrCoordinator ? 'all' : user?.id || 'none'}`
 }
 const TASKS_CACHE_TAG = 'tasks'
 
-export const useTasks = (statusFilter = 'All') => {
+export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
   const { user, role } = useAuth()
   const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
 
@@ -24,9 +24,67 @@ export const useTasks = (statusFilter = 'All') => {
     refetch,
     updateCache
   } = useCachedQuery(
-    getTasksCacheKey(statusFilter, user, role),
+    getTasksCacheKey(statusFilter, viewFilter, user, role),
     async () => {
       if (!user) return []
+      
+      // Resolve user's team associations for "team" or "mine_and_team" views
+      let myEventTeamIds = []
+      let myProjectIds = []
+      
+      if (!isAdminOrCoordinator || viewFilter === 'team' || viewFilter === 'mine_and_team') {
+        const [
+          eventTeamMembersRes,
+          eventTeamsCreatedRes,
+          teamMembersRes,
+          teamsLedRes,
+          profileRes
+        ] = await Promise.all([
+          supabase.from('event_team_members').select('event_team_id').eq('member_id', user.id).eq('status', 'active'),
+          supabase.from('event_teams').select('id').eq('created_by', user.id),
+          supabase.from('team_members').select('team_id').eq('member_id', user.id),
+          supabase.from('teams').select('id').eq('lead_id', user.id),
+          supabase.from('profiles').select('department').eq('id', user.id).single()
+        ])
+
+        const etmIds = eventTeamMembersRes.data?.map(d => d.event_team_id) || []
+        const etcIds = eventTeamsCreatedRes.data?.map(d => d.id) || []
+        const tmIds = teamMembersRes.data?.map(d => d.team_id) || []
+        const tlIds = teamsLedRes.data?.map(d => d.id) || []
+        const myGeneralTeamIds = [...new Set([...tmIds, ...tlIds])]
+
+        let matchedEventTeamIds = []
+        let teamNamesToMatch = []
+
+        if (myGeneralTeamIds.length > 0) {
+          const { data: genTeams } = await supabase.from('teams').select('name').in('id', myGeneralTeamIds)
+          teamNamesToMatch = genTeams?.map(t => t.name) || []
+        }
+
+        if (profileRes.data?.department && !teamNamesToMatch.includes(profileRes.data.department)) {
+          teamNamesToMatch.push(profileRes.data.department)
+        }
+
+        if (teamNamesToMatch.length > 0) {
+          const { data: matchedEventTeams } = await supabase.from('event_teams').select('id').in('name', teamNamesToMatch)
+          matchedEventTeamIds = matchedEventTeams?.map(t => t.id) || []
+          
+          // Also try case-insensitive match for the first few just in case
+          if (matchedEventTeamIds.length === 0 && teamNamesToMatch[0]) {
+             const { data: matchedIlike } = await supabase.from('event_teams').select('id').ilike('name', teamNamesToMatch[0])
+             matchedEventTeamIds = matchedIlike?.map(t => t.id) || []
+          }
+        }
+
+        if (myGeneralTeamIds.length > 0) {
+          const { data: projs } = await supabase.from('projects').select('id').in('team_id', myGeneralTeamIds)
+          myProjectIds = projs?.map(p => p.id) || []
+        }
+
+        myEventTeamIds = [...new Set([...etmIds, ...etcIds, ...matchedEventTeamIds])]
+      }
+
+      // Fetch general tasks
       let query = supabase
         .from('tasks')
         .select(`
@@ -37,21 +95,77 @@ export const useTasks = (statusFilter = 'All') => {
           event:events(title)
         `)
 
-      // If user is member, only fetch their tasks
-      if (!isAdminOrCoordinator) {
+      if (viewFilter === 'mine') {
         query = query.eq('assigned_to', user.id)
+      } else if (viewFilter === 'team') {
+        if (myProjectIds.length > 0) {
+          query = query.in('project_id', myProjectIds)
+        } else {
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000') // impossible
+        }
+      } else if (!isAdminOrCoordinator || viewFilter === 'mine_and_team') {
+        if (myProjectIds.length > 0) {
+          query = query.or(`assigned_to.eq.${user.id},project_id.in.(${myProjectIds.join(',')})`)
+        } else {
+          query = query.eq('assigned_to', user.id)
+        }
       }
 
-      const { data, error: fetchErr } = await query.order('due_date', { ascending: true })
+      // Fetch event tasks
+      let eventTasksQuery = supabase
+        .from('event_tasks')
+        .select(`
+          *,
+          assignee:profiles!event_tasks_assigned_to_fkey(full_name, avatar_url),
+          event:events(title),
+          team:event_teams!event_tasks_event_team_id_fkey(name)
+        `)
 
-      if (fetchErr) throw fetchErr
+      if (viewFilter === 'mine') {
+        eventTasksQuery = eventTasksQuery.eq('assigned_to', user.id)
+      } else if (viewFilter === 'team') {
+        if (myEventTeamIds.length > 0) {
+          eventTasksQuery = eventTasksQuery.in('event_team_id', myEventTeamIds)
+        } else {
+          eventTasksQuery = eventTasksQuery.eq('id', '00000000-0000-0000-0000-000000000000') // no teams
+        }
+      } else if (!isAdminOrCoordinator || viewFilter === 'mine_and_team') {
+        if (myEventTeamIds.length > 0) {
+          eventTasksQuery = eventTasksQuery.or(`assigned_to.eq.${user.id},event_team_id.in.(${myEventTeamIds.join(',')})`)
+        } else {
+          eventTasksQuery = eventTasksQuery.eq('assigned_to', user.id)
+        }
+      }
 
-      let filtered = data || []
+      const [tasksRes, eventTasksRes] = await Promise.all([
+        query.order('due_date', { ascending: true }),
+        eventTasksQuery.order('due_date', { ascending: true })
+      ])
+
+      if (tasksRes.error) throw tasksRes.error
+      if (eventTasksRes.error) throw eventTasksRes.error
+
+      const generalTasks = (tasksRes.data || []).map(t => ({ ...t, isEventTask: false, isMine: t.assigned_to === user.id }))
+      const eventTasks = (eventTasksRes.data || []).map(t => ({ 
+        ...t, 
+        isEventTask: true,
+        isMine: t.assigned_to === user.id,
+        // Map status
+        status: t.status === 'todo' ? 'not_started' : t.status === 'done' ? 'completed' : t.status,
+        progress: t.status === 'done' ? 100 : t.status === 'in_progress' ? 50 : 0
+      }))
+
+      let allTasks = [...generalTasks, ...eventTasks].sort((a, b) => {
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date) - new Date(b.due_date);
+      })
+
       if (statusFilter && statusFilter !== 'All' && statusFilter !== 'all') {
-        filtered = filtered.filter(t => t.status === statusFilter)
+        allTasks = allTasks.filter(t => t.status === statusFilter)
       }
 
-      return filtered
+      return allTasks
     },
     {
       ttl: 24 * 60 * 60 * 1000, // 24 hours — invalidated on mutation
@@ -90,13 +204,23 @@ export const useTasks = (statusFilter = 'All') => {
   )
 
   const updateTaskProgress = useCachedMutation(
-    async (taskId, progressValue, statusValue) => {
-      const { data, error: err } = await supabase
-        .from('tasks')
-        .update({
+    async (taskId, progressValue, statusValue, isEventTask = false) => {
+      const table = isEventTask ? 'event_tasks' : 'tasks'
+      let updatePayload = {}
+      if (isEventTask) {
+        // map status back to event_task status
+        const evStatus = statusValue || (progressValue === 100 ? 'done' : 'in_progress')
+        updatePayload = { status: evStatus }
+      } else {
+        updatePayload = {
           progress: progressValue,
           status: statusValue || (progressValue === 100 ? 'completed' : 'in_progress')
-        })
+        }
+      }
+
+      const { data, error: err } = await supabase
+        .from(table)
+        .update(updatePayload)
         .eq('id', taskId)
         .select()
         .single()
@@ -111,12 +235,25 @@ export const useTasks = (statusFilter = 'All') => {
   )
 
   const toggleTaskCompleted = useCachedMutation(
-    async (taskId, currentStatus) => {
-      const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
-      const newProgress = newStatus === 'completed' ? 100 : 0
+    async (task) => {
+      const taskId = task.id
+      const isEventTask = task.isEventTask
+      const currentStatus = task.status
+      const table = isEventTask ? 'event_tasks' : 'tasks'
+      
+      let updatePayload = {}
+      if (isEventTask) {
+        const newStatus = currentStatus === 'completed' ? 'todo' : 'done'
+        updatePayload = { status: newStatus }
+      } else {
+        const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
+        const newProgress = newStatus === 'completed' ? 100 : 0
+        updatePayload = { status: newStatus, progress: newProgress }
+      }
+      
       const { data, error: err } = await supabase
-        .from('tasks')
-        .update({ status: newStatus, progress: newProgress })
+        .from(table)
+        .update(updatePayload)
         .eq('id', taskId)
         .select()
         .single()
@@ -131,7 +268,12 @@ export const useTasks = (statusFilter = 'All') => {
   )
 
   const addAdminComment = useCachedMutation(
-    async (taskId, commentText) => {
+    async (taskId, commentText, isEventTask = false) => {
+      if (isEventTask) {
+         // event_tasks doesn't have admin_comment right now, but just in case
+         console.warn("admin_comment not supported on event_tasks")
+         return null
+      }
       const safeComment = sanitizeText(commentText, 2000)
       const { data, error: err } = await supabase
         .from('tasks')
@@ -150,9 +292,10 @@ export const useTasks = (statusFilter = 'All') => {
   )
 
   const deleteTask = useCachedMutation(
-    async (taskId) => {
+    async (taskId, isEventTask = false) => {
+      const table = isEventTask ? 'event_tasks' : 'tasks'
       const { error: err } = await supabase
-        .from('tasks')
+        .from(table)
         .delete()
         .eq('id', taskId)
 
@@ -165,21 +308,21 @@ export const useTasks = (statusFilter = 'All') => {
   )
 
   const { mutate: mutateToggle } = toggleTaskCompleted
-  const optimisticToggleTaskCompleted = async (taskId, currentStatus) => {
+  const optimisticToggleTaskCompleted = async (task) => {
     const originalTasks = [...tasks]
-    const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
+    const newStatus = task.status === 'completed' ? 'not_started' : 'completed'
     const newProgress = newStatus === 'completed' ? 100 : 0
 
     // Optimistically update cache and UI
     const updated = tasks.map(t =>
-      t.id === taskId
-        ? { ...t, status: newStatus, progress: newProgress }
+      t.id === task.id
+        ? { ...t, status: newStatus, progress: task.isEventTask ? (newStatus === 'completed' ? 100 : 0) : newProgress }
         : t
     )
     updateCache(updated)
 
     try {
-      await mutateToggle(taskId, currentStatus)
+      await mutateToggle(task)
     } catch (err) {
       console.warn('[Optimistic Update] Failed to toggle task completion. Rolling back.', err.message)
       updateCache(originalTasks)
@@ -188,15 +331,15 @@ export const useTasks = (statusFilter = 'All') => {
   }
 
   const { mutate: mutateDelete } = deleteTask
-  const optimisticDeleteTask = async (taskId) => {
+  const optimisticDeleteTask = async (task) => {
     const originalTasks = [...tasks]
 
     // Optimistically update cache and UI
-    const updated = tasks.filter(t => t.id !== taskId)
+    const updated = tasks.filter(t => t.id !== task.id)
     updateCache(updated)
 
     try {
-      await mutateDelete(taskId)
+      await mutateDelete(task.id, task.isEventTask)
     } catch (err) {
       console.warn('[Optimistic Update] Failed to delete task. Rolling back.', err.message)
       updateCache(originalTasks)

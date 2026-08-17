@@ -8,8 +8,10 @@ import { ListSkeleton } from '../components/SkeletonLoaders'
 export const Tasks = () => {
   const { role, user } = useAuth()
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  
+  const [viewTab, setViewTab] = useState(canManage ? 'all' : 'mine')
   const [statusTab, setStatusTab] = useState('all')
-  const { tasks, loading, refetch, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab)
+  const { tasks, loading, refetch, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab, viewTab)
   const { sendNotification } = useNotifications()
 
   const [showAssign, setShowAssign] = useState(false)
@@ -90,6 +92,16 @@ export const Tasks = () => {
         </div>
       )}
 
+      <div className="flex gap-2 mb-6">
+        <div className="bg-surface-container rounded-lg p-1 flex">
+          {(canManage ? ['all', 'mine', 'team'] : ['mine', 'team']).map(v => (
+            <button key={v} onClick={() => setViewTab(v)} className={`px-4 py-2 font-label-caps text-xs uppercase font-bold rounded-md transition-all ${viewTab === v ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}>
+              {v === 'all' ? 'All Tasks' : v === 'mine' ? 'Your Tasks' : 'Your Team Tasks'}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-2 border-b border-outline-variant mb-6 pb-px overflow-x-auto no-scrollbar">
         {tabs.map(t => (
           <button key={t} onClick={() => setStatusTab(t)} className={`px-4 py-2.5 font-label-caps text-xs uppercase font-bold border-b-2 transition-all whitespace-nowrap ${statusTab === t ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{t.replace('_', ' ')}</button>
@@ -106,17 +118,19 @@ export const Tasks = () => {
             <div className="space-y-3">
               {tasks.map(t => (
                 <div key={t.id} className="bg-surface-container rounded-xl border border-outline-variant p-4 shadow-sm hover:shadow-md transition-shadow flex items-start gap-4">
-                  <button onClick={() => toggleTaskCompleted(t.id, t.status)} className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${t.status === 'completed' ? 'bg-success border-success' : 'border-outline-variant hover:border-primary'}`}>
+                  <button onClick={() => toggleTaskCompleted(t)} className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${t.status === 'completed' ? 'bg-success border-success' : 'border-outline-variant hover:border-primary'}`}>
                     {t.status === 'completed' && <span className="material-symbols-outlined text-xs text-black">check</span>}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className={`font-bold text-sm ${t.status === 'completed' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{t.title}</span>
+                      {t.isMine && <span className="text-[10px] font-bold font-label-caps uppercase bg-success/10 text-success border border-success/20 px-2 py-0.5 rounded">Your Task</span>}
+                      {t.isEventTask && <span className="text-[10px] font-bold font-label-caps uppercase bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">groups</span>{t.team?.name || 'Team'}</span>}
                       <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${priorityColor(t.priority)}`}>{t.priority}</span>
                       <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${statusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
                     </div>
                     <div className="flex items-center gap-4 text-[10px] text-outline font-label-caps uppercase">
-                      {t.assignee_name && <span>Assigned to {t.assignee_name}</span>}
+                      {t.assignee?.full_name && <span>Assigned to {t.assignee.full_name}</span>}
                       {t.due_date && <span>Due {new Date(t.due_date).toLocaleDateString()}</span>}
                     </div>
                     <div className="mt-2 w-full h-1.5 bg-surface rounded-full"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${t.progress ?? 0}%` }}/></div>

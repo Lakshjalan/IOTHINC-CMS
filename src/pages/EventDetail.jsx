@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useEventTeams } from '../hooks/useEventTeams'
@@ -214,10 +214,11 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
 }
 
 // ── Team Card (Teams Tab) ────────────────────────────────────
-const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember, onCreateSubTeam, depth = 0 }) => {
-  const [expanded, setExpanded] = useState(false)
+const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember, onCreateSubTeam, depth = 0 }) => {
+  const [expanded, setExpanded] = useState(true)
   const [showManage, setShowManage] = useState(false)
   const [addMemberId, setAddMemberId] = useState('')
+  const navigate = useNavigate()
   const subTeams = allTeams.filter(t => t.parent_team_id === team.id)
 
   const progress = team.taskCount > 0 ? Math.round((team.doneTaskCount / team.taskCount) * 100) : 0
@@ -230,7 +231,7 @@ const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, 
       {/* Gradient Header */}
       <div className={`bg-gradient-to-r ${teamColors[colorIdx]} p-5 border-b border-outline-variant/30`}>
         <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3 flex-1">
+          <div className="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate(`/events/${eventId}/team/${team.id}`)}>
             <div className="w-10 h-10 rounded-xl bg-surface-container/60 backdrop-blur-sm flex items-center justify-center">
               <span className="material-symbols-outlined text-primary">{depth > 0 ? 'hub' : 'groups'}</span>
             </div>
@@ -269,10 +270,14 @@ const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, 
       </div>
 
       {/* Body */}
+      {expanded && (
       <div className="p-5">
         <div className="flex items-center justify-between mb-4">
           <AvatarStack members={team.activeMembers.map(m => m.member).filter(Boolean)} />
           <div className="flex items-center gap-2">
+            <button onClick={() => navigate(`/events/${eventId}/team/${team.id}`)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors rounded-lg font-bold">
+              <span className="material-symbols-outlined text-sm">task_alt</span> Tasks
+            </button>
             {(canManage || team.created_by === user?.id) && (
               <>
                 <button
@@ -317,33 +322,6 @@ const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, 
             <span className="flex items-center gap-1 text-amber-400"><span className="material-symbols-outlined text-sm">notifications</span>{team.pendingMembers.length} pending</span>
           )}
         </div>
-
-        {/* Expanded: Tasks */}
-        {expanded && (
-          <div className="mt-4 border-t border-outline-variant/30 pt-4 space-y-2">
-            {team.event_tasks?.length === 0 ? (
-              <p className="text-xs text-on-surface-variant italic text-center py-3">No tasks yet</p>
-            ) : (
-              team.event_tasks?.filter(t => !t.parent_task_id).map(task => (
-                <div key={task.id} className="flex items-center gap-3 p-2.5 bg-surface-container-low rounded-lg group">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${task.status === 'done' ? 'bg-success' : task.status === 'in_progress' ? 'bg-primary' : task.status === 'blocked' ? 'bg-error' : 'bg-outline'}`} />
-                  <span className={`text-sm flex-1 ${task.status === 'done' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{task.title}</span>
-                  <span className={`text-[9px] font-bold font-label-caps uppercase px-1.5 py-0.5 rounded ${PRIORITY_STYLES[task.priority]}`}>{task.priority}</span>
-                  {task.assignee && (
-                    <img src={task.assignee.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.assignee.full_name)}`}
-                      title={task.assignee.full_name} className="w-5 h-5 rounded-full border border-outline-variant object-cover" />
-                  )}
-                  {/* Sub-tasks indicator */}
-                  {team.event_tasks?.filter(st => st.parent_task_id === task.id).length > 0 && (
-                    <span className="text-[9px] text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded-full">
-                      +{team.event_tasks.filter(st => st.parent_task_id === task.id).length} sub
-                    </span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
 
         {/* Admin manage panel */}
         {showManage && (canManage || team.created_by === user?.id) && (
@@ -413,6 +391,7 @@ const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, 
             {subTeams.map(subTeam => (
               <div key={subTeam.id} className="ml-3 pl-3 border-l-2 border-primary/20">
                 <TeamCard
+                  eventId={eventId}
                   team={subTeam}
                   canManage={canManage}
                   user={user}
@@ -431,6 +410,7 @@ const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, 
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -826,10 +806,11 @@ export const EventDetail = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {topLevelTeams.map(team => (
                 <TeamCard
                   key={team.id}
+                  eventId={id}
                   team={team}
                   canManage={canManage}
                   user={user}

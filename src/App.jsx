@@ -30,6 +30,7 @@ const Teams          = lazy(() => import('./pages/Teams').then(m => ({ default: 
 const CreateTeam     = lazy(() => import('./pages/CreateTeam').then(m => ({ default: m.CreateTeam })))
 const Events         = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })))
 const EventDetail    = lazy(() => import('./pages/EventDetail').then(m => ({ default: m.EventDetail })))
+const EventTeamDetail = lazy(() => import('./pages/EventTeamDetail').then(m => ({ default: m.EventTeamDetail })))
 const Competitions   = lazy(() => import('./pages/Competitions').then(m => ({ default: m.Competitions })))
 const CompetitionHost = lazy(() => import('./pages/CompetitionHost').then(m => ({ default: m.CompetitionHost })))
 const Tasks          = lazy(() => import('./pages/Tasks').then(m => ({ default: m.Tasks })))
@@ -194,6 +195,7 @@ function AppRoutes() {
         <Route path="/teams/new" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
         <Route path="/events"             element={<Page><Events /></Page>} />
         <Route path="/events/:id"         element={<Page><EventDetail /></Page>} />
+        <Route path="/events/:eventId/team/:teamId" element={<Page><EventTeamDetail /></Page>} />
         <Route path="/competitions"       element={<Page><Competitions /></Page>} />
         <Route path="/competitions/host" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
         <Route path="/tasks"              element={<Page><Tasks /></Page>} />
