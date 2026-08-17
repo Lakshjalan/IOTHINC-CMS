@@ -4,7 +4,6 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useEventTeams } from '../hooks/useEventTeams'
 import { useMembers } from '../hooks/useMembers'
-import { useChat } from '../hooks/useChat'
 import { DetailPageSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 const PRIORITY_STYLES = {
@@ -635,10 +634,9 @@ export const EventDetail = () => {
   const [activeTab, setActiveTab] = useState('overview')
   const [joinModal, setJoinModal] = useState(null) // team object
   const [showCreateTeam, setShowCreateTeam] = useState(false)
-  const [createSubTeamParentId, setCreateSubTeamParentId] = useState(null) // parent team id for nested creation
+  const [createSubTeamParentId, setCreateSubTeamParentId] = useState(null)
   const [showCreateTask, setShowCreateTask] = useState(false)
-  const [createSubTaskParent, setCreateSubTaskParent] = useState(null) // { id, title, eventTeamId }
-  const [selectedChatTeamId, setSelectedChatTeamId] = useState(null)
+  const [createSubTaskParent, setCreateSubTaskParent] = useState(null)
   const { members } = useMembers()
 
   const {
@@ -673,8 +671,6 @@ export const EventDetail = () => {
   const pendingRequestsCount = eventTeams.reduce((acc, t) => acc + t.pendingMembers.length, 0)
   // Only top-level teams (no parent) for rendering the top-level grid
   const topLevelTeams = eventTeams.filter(t => !t.parent_team_id)
-  // My teams I'm a member of (for chat rooms)
-  const myTeams = eventTeams.filter(t => t.isMember || canManage)
 
   if (loadingEvent) return <DetailPageSkeleton variant="event" />
 
@@ -732,7 +728,6 @@ export const EventDetail = () => {
           { id: 'overview', label: 'Overview', icon: 'info' },
           { id: 'teams', label: `Teams (${eventTeams.length})`, icon: 'groups', badge: canManage && pendingRequestsCount > 0 ? pendingRequestsCount : null },
           { id: 'tasks', label: 'Tasks', icon: 'task_alt' },
-          { id: 'chat', label: 'Team Chat', icon: 'forum' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -875,58 +870,6 @@ export const EventDetail = () => {
         </div>
       )}
 
-      {/* Tab: Team Chat */}
-      {activeTab === 'chat' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          {/* Sidebar: team list */}
-          <div className="md:col-span-1 bg-surface-container rounded-2xl border border-outline-variant overflow-hidden">
-            <div className="px-4 py-3 border-b border-outline-variant bg-surface-container-high">
-              <h3 className="text-xs font-bold font-label-caps uppercase text-on-surface-variant">Sub-Team Rooms</h3>
-            </div>
-            <div className="p-2 space-y-1">
-              {myTeams.length === 0 ? (
-                <p className="text-xs text-on-surface-variant italic text-center py-6">You're not in any sub-teams yet.</p>
-              ) : (
-                myTeams.map(team => (
-                  <button
-                    key={team.id}
-                    onClick={() => setSelectedChatTeamId(team.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all ${
-                      selectedChatTeamId === team.id ? 'bg-primary text-on-primary' : 'hover:bg-surface-container-high text-on-surface'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-sm">{team.parent_team_id ? 'hub' : 'groups'}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold truncate">{team.name}</div>
-                      {team.parent_team_id && <div className={`text-[9px] font-label-caps uppercase ${selectedChatTeamId === team.id ? 'text-on-primary/70' : 'text-on-surface-variant'}`}>Sub-Team</div>}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-          {/* Chat area */}
-          <div className="md:col-span-3">
-            {selectedChatTeamId ? (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="material-symbols-outlined text-primary">forum</span>
-                  <h3 className="font-bold text-on-surface">{myTeams.find(t => t.id === selectedChatTeamId)?.name} — Chat</h3>
-                </div>
-                <SubTeamChatRoom eventTeamId={selectedChatTeamId} />
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[500px] bg-surface-container rounded-2xl border border-outline-variant border-dashed">
-                <div className="text-center">
-                  <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">forum</span>
-                  <p className="text-on-surface-variant font-semibold">Select a sub-team</p>
-                  <p className="text-xs text-on-surface-variant/60 mt-1">Choose a team from the left to open its chat room.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Modals */}
       {joinModal && (

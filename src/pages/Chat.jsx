@@ -71,11 +71,12 @@ export const Chat = () => {
       .from('event_team_members')
       .select(`
         event_teams (
-          id, name,
+          id, name, parent_team_id,
           events ( title )
         )
       `)
       .eq('member_id', user.id)
+      .eq('status', 'active')
       .then(({ data }) => {
         if (data) setMyEventTeams(data.map(r => r.event_teams).filter(Boolean))
       })
@@ -170,10 +171,13 @@ export const Chat = () => {
       }
     }
     if (activeChat.type === 'event_team') {
+      const isSubTeam = !!activeChat.data?.parent_team_id
       return {
         title: activeChat.data.name,
-        subtitle: `Event: ${activeChat.data.events?.title || 'Event Team'} · Team Channel`,
-        icon: 'groups'
+        subtitle: isSubTeam
+          ? `Sub-Team · ${activeChat.data.events?.title || 'Event'}`
+          : `Event: ${activeChat.data.events?.title || 'Event Team'} · Team Channel`,
+        icon: isSubTeam ? 'hub' : 'groups'
       }
     }
     // DM
@@ -389,17 +393,25 @@ export const Chat = () => {
               </button>
               {showEventTeams && myEventTeams.map(et => {
                 const isActive = activeChat.type === 'event_team' && activeChat.data.id === et.id
+                const isSubTeam = !!et.parent_team_id
                 return (
                   <button
                     key={et.id}
                     onClick={() => setActiveChat({ type: 'event_team', data: et })}
-                    className={`${channelButtonClass(isActive)} mb-1`}
+                    className={`${channelButtonClass(isActive)} mb-1 ${isSubTeam ? 'ml-3' : ''}`}
                   >
-                    <div className={`${channelIconClass(isActive)} text-xs font-bold`}>
-                      {et.name.charAt(0).toUpperCase()}
+                    <div className={`${channelIconClass(isActive)} text-xs font-bold shrink-0`}>
+                      <span className="material-symbols-outlined text-[16px]">{isSubTeam ? 'hub' : 'groups'}</span>
                     </div>
                     <div className="flex flex-col items-start truncate flex-1">
-                      <span className="truncate text-sm">{et.name}</span>
+                      <div className="flex items-center gap-1.5 w-full">
+                        {isSubTeam && (
+                          <span className={`text-[8px] font-bold font-label-caps uppercase px-1 py-0.5 rounded shrink-0 ${
+                            isActive ? 'bg-primary/30 text-on-primary' : 'bg-surface-container-highest text-on-surface-variant'
+                          }`}>Sub</span>
+                        )}
+                        <span className="truncate text-sm">{et.name}</span>
+                      </div>
                       {et.events?.title && (
                         <span className="text-[10px] text-on-surface-variant/60 font-label-caps uppercase truncate">{et.events.title}</span>
                       )}
