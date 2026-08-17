@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useEventTeams } from '../hooks/useEventTeams'
 import { useMembers } from '../hooks/useMembers'
+import { useChat } from '../hooks/useChat'
 import { DetailPageSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 const PRIORITY_STYLES = {
@@ -90,20 +91,21 @@ const JoinRequestModal = ({ team, onClose, onSubmit }) => {
 }
 
 // ── Create Team Modal ────────────────────────────────────────
-const CreateTeamModal = ({ onClose, onCreate }) => {
+const CreateTeamModal = ({ onClose, onCreate, parentTeamId = null }) => {
   const [form, setForm] = useState({ name: '', description: '', max_members: '' })
   const [loading, setLoading] = useState(false)
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    try { await onCreate({ name: form.name, description: form.description, maxMembers: form.max_members ? parseInt(form.max_members) : null }); onClose() }
+    try { await onCreate({ name: form.name, description: form.description, maxMembers: form.max_members ? parseInt(form.max_members) : null, parentTeamId }); onClose() }
     catch (err) { alert(err.message) }
     finally { setLoading(false) }
   }
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-surface border border-outline-variant rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="font-bold text-on-surface text-lg mb-4">Create Sub-Team</h3>
+        <h3 className="font-bold text-on-surface text-lg mb-4">{parentTeamId ? 'Create Nested Sub-Team' : 'Create Sub-Team'}</h3>
+        {parentTeamId && <p className="text-xs text-on-surface-variant mb-4 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">This sub-team will be nested inside the selected team.</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-label-caps uppercase text-on-surface-variant mb-1.5">Team Name *</label>
@@ -135,7 +137,7 @@ const CreateTeamModal = ({ onClose, onCreate }) => {
   )
 }
 
-const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onCreate }) => {
+const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onCreate, parentTaskId = null, parentTaskTitle = null }) => {
   const allowedTeams = canManage ? eventTeams : eventTeams.filter(t => t.created_by === user?.id)
   const [form, setForm] = useState({ eventTeamId: allowedTeams[0]?.id || '', title: '', description: '', assignedTo: '', priority: 'medium', dueDate: '' })
   const selectedTeam = allowedTeams.find(t => t.id === form.eventTeamId)
@@ -152,7 +154,7 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
     e.preventDefault()
     setLoading(true)
     try {
-      await onCreate({ eventTeamId: form.eventTeamId, title: form.title, description: form.description, assignedTo: form.assignedTo || null, priority: form.priority, dueDate: form.dueDate || null })
+      await onCreate({ eventTeamId: form.eventTeamId, title: form.title, description: form.description, assignedTo: form.assignedTo || null, priority: form.priority, dueDate: form.dueDate || null, parentTaskId: parentTaskId || null })
       onClose()
     } catch (err) { alert(err.message) }
     finally { setLoading(false) }
@@ -160,8 +162,9 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-surface border border-outline-variant rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="font-bold text-on-surface text-lg mb-4">Create Task</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <h3 className="font-bold text-on-surface text-lg mb-1">{parentTaskId ? 'Create Sub-Task' : 'Create Task'}</h3>
+        {parentTaskTitle && <p className="text-xs text-on-surface-variant mb-4 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">Sub-task of: <span className="font-semibold text-primary">{parentTaskTitle}</span></p>}
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
             <label className="block text-xs font-label-caps uppercase text-on-surface-variant mb-1.5">Sub-Team *</label>
             <select value={form.eventTeamId} onChange={e => setForm({...form, eventTeamId: e.target.value})} required
@@ -202,7 +205,7 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl text-sm hover:bg-surface-container-high transition-colors">Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 py-2.5 bg-primary text-on-primary font-bold rounded-xl text-sm hover:brightness-110 disabled:opacity-50">
-              {loading ? 'Creating...' : 'Create Task'}
+              {loading ? 'Creating...' : parentTaskId ? 'Create Sub-Task' : 'Create Task'}
             </button>
           </div>
         </form>
@@ -212,10 +215,11 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
 }
 
 // ── Team Card (Teams Tab) ────────────────────────────────────
-const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember }) => {
+const TeamCard = ({ team, canManage, user, allMembers, allTeams, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember, onCreateSubTeam, depth = 0 }) => {
   const [expanded, setExpanded] = useState(false)
   const [showManage, setShowManage] = useState(false)
   const [addMemberId, setAddMemberId] = useState('')
+  const subTeams = allTeams.filter(t => t.parent_team_id === team.id)
 
   const progress = team.taskCount > 0 ? Math.round((team.doneTaskCount / team.taskCount) * 100) : 0
 
@@ -223,16 +227,19 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
   const colorIdx = team.name.charCodeAt(0) % teamColors.length
 
   return (
-    <div className="bg-surface-container rounded-2xl border border-outline-variant overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200">
+    <div className={`rounded-2xl border border-outline-variant overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${depth > 0 ? 'bg-surface-container-high' : 'bg-surface-container'}`}>
       {/* Gradient Header */}
       <div className={`bg-gradient-to-r ${teamColors[colorIdx]} p-5 border-b border-outline-variant/30`}>
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 rounded-xl bg-surface-container/60 backdrop-blur-sm flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">groups</span>
+              <span className="material-symbols-outlined text-primary">{depth > 0 ? 'hub' : 'groups'}</span>
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-on-surface text-base">{team.name}</h4>
+              <div className="flex items-center gap-2">
+                {depth > 0 && <span className="text-[9px] font-bold font-label-caps uppercase text-primary bg-primary/15 px-1.5 py-0.5 rounded">Sub-Team</span>}
+                <h4 className="font-bold text-on-surface text-base">{team.name}</h4>
+              </div>
               {team.description && <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-1">{team.description}</p>}
             </div>
           </div>
@@ -268,9 +275,17 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
           <AvatarStack members={team.activeMembers.map(m => m.member).filter(Boolean)} />
           <div className="flex items-center gap-2">
             {(canManage || team.created_by === user?.id) && (
-              <button onClick={() => setShowManage(!showManage)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors text-on-surface-variant">
-                <span className="material-symbols-outlined text-sm">manage_accounts</span> Manage
-              </button>
+              <>
+                <button
+                  onClick={() => onCreateSubTeam(team.id)}
+                  className="text-xs flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">hub</span> Sub-Team
+                </button>
+                <button onClick={() => setShowManage(!showManage)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">manage_accounts</span> Manage
+                </button>
+              </>
             )}
             {!canManage && (
               team.isMember ? (
@@ -298,6 +313,7 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
         <div className="flex gap-4 text-xs text-on-surface-variant">
           <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">group</span>{team.memberCount} members</span>
           <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">task_alt</span>{team.taskCount} tasks</span>
+          {subTeams.length > 0 && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">hub</span>{subTeams.length} sub-teams</span>}
           {team.pendingMembers.length > 0 && canManage && (
             <span className="flex items-center gap-1 text-amber-400"><span className="material-symbols-outlined text-sm">notifications</span>{team.pendingMembers.length} pending</span>
           )}
@@ -309,7 +325,7 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
             {team.event_tasks?.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic text-center py-3">No tasks yet</p>
             ) : (
-              team.event_tasks?.map(task => (
+              team.event_tasks?.filter(t => !t.parent_task_id).map(task => (
                 <div key={task.id} className="flex items-center gap-3 p-2.5 bg-surface-container-low rounded-lg group">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${task.status === 'done' ? 'bg-success' : task.status === 'in_progress' ? 'bg-primary' : task.status === 'blocked' ? 'bg-error' : 'bg-outline'}`} />
                   <span className={`text-sm flex-1 ${task.status === 'done' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{task.title}</span>
@@ -318,6 +334,12 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
                     <img src={task.assignee.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.assignee.full_name)}`}
                       title={task.assignee.full_name} className="w-5 h-5 rounded-full border border-outline-variant object-cover" />
                   )}
+                  {/* Sub-tasks indicator */}
+                  {team.event_tasks?.filter(st => st.parent_task_id === task.id).length > 0 && (
+                    <span className="text-[9px] text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded-full">
+                      +{team.event_tasks.filter(st => st.parent_task_id === task.id).length} sub
+                    </span>
+                  )}
                 </div>
               ))
             )}
@@ -325,7 +347,7 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
         )}
 
         {/* Admin manage panel */}
-        {showManage && canManage && (
+        {showManage && (canManage || team.created_by === user?.id) && (
           <div className="mt-4 border-t border-outline-variant/30 pt-4 space-y-3">
             {/* Pending requests */}
             {team.pendingMembers.length > 0 && (
@@ -358,7 +380,7 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
                   <img src={am.member?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(am.member?.full_name)}`}
                     className="w-7 h-7 rounded-full object-cover border border-outline-variant" />
                   <span className="text-sm text-on-surface flex-1">{am.member?.full_name}</span>
-                  <button onClick={() => onRemoveMember(team.id, am.member_id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 rounded transition-all">
+                  <button onClick={() => onRemoveMember(team.id, am.member_id)} className="p-1 hover:bg-error/20 rounded transition-all">
                     <span className="material-symbols-outlined text-error text-sm">person_remove</span>
                   </button>
                 </div>
@@ -382,21 +404,117 @@ const TeamCard = ({ team, canManage, user, allMembers, onRequestJoin, onApprove,
             </div>
           </div>
         )}
+
+        {/* Nested Sub-Teams */}
+        {subTeams.length > 0 && (
+          <div className="mt-4 border-t border-outline-variant/30 pt-4 space-y-3">
+            <h5 className="text-[10px] font-bold font-label-caps uppercase text-primary flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">hub</span> Sub-Teams
+            </h5>
+            {subTeams.map(subTeam => (
+              <div key={subTeam.id} className="ml-3 pl-3 border-l-2 border-primary/20">
+                <TeamCard
+                  team={subTeam}
+                  canManage={canManage}
+                  user={user}
+                  allMembers={allMembers}
+                  allTeams={allTeams}
+                  onRequestJoin={onRequestJoin}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                  onAddMember={onAddMember}
+                  onRemoveMember={onRemoveMember}
+                  onCreateSubTeam={onCreateSubTeam}
+                  depth={depth + 1}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
+// ── Sub-Team Chat Room ───────────────────────────────────────
+const SubTeamChatRoom = ({ eventTeamId }) => {
+  const { user, profile } = useAuth()
+  const { messages, loading, sendMessage } = useChat(null, null, eventTeamId)
+  const [text, setText] = useState('')
+  const bottomRef = useRef(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = async (e) => {
+    e.preventDefault()
+    if (!text.trim()) return
+    await sendMessage(text)
+    setText('')
+  }
+
+  return (
+    <div className="flex flex-col h-[500px] bg-surface-container rounded-2xl border border-outline-variant overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {loading ? (
+          <div className="text-xs text-on-surface-variant text-center py-8">Loading messages...</div>
+        ) : messages.length === 0 ? (
+          <div className="text-xs text-on-surface-variant text-center py-8 italic">No messages yet. Start the conversation!</div>
+        ) : (
+          messages.map(msg => {
+            const isMe = msg.sender_id === user?.id
+            const name = msg.sender?.full_name || 'Unknown'
+            return (
+              <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
+                <img
+                  src={msg.sender?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`}
+                  className="w-7 h-7 rounded-full border border-outline-variant object-cover shrink-0 mt-1"
+                />
+                <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
+                  {!isMe && <span className="text-[10px] text-on-surface-variant font-semibold ml-1">{name}</span>}
+                  <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                    isMe ? 'bg-primary text-on-primary rounded-tr-sm' : 'bg-surface-container-high text-on-surface rounded-tl-sm'
+                  }`}>{msg.content}</div>
+                  <span className="text-[9px] text-on-surface-variant opacity-60 mx-1">
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            )
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+      <form onSubmit={handleSend} className="flex gap-2 p-3 border-t border-outline-variant bg-surface-container-high">
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Send a message..."
+          className="flex-1 bg-surface-container border border-outline-variant rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <button type="submit" disabled={!text.trim()} className="px-3 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm hover:brightness-110 disabled:opacity-40 transition-all">
+          <span className="material-symbols-outlined text-sm">send</span>
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ── Kanban Task Board ────────────────────────────────────────
-const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask }) => {
+const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask, onCreateSubTask }) => {
   const allTasks = eventTeams.flatMap(team =>
     (team.event_tasks || []).map(t => ({ ...t, teamName: team.name }))
   )
+  // Only top-level tasks in kanban (parent_task_id === null)
+  const topLevelTasks = allTasks.filter(t => !t.parent_task_id)
+  // Get sub-tasks for a given task
+  const getSubTasks = (taskId) => allTasks.filter(t => t.parent_task_id === taskId)
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {STATUS_COLS.map(col => {
-        const colTasks = allTasks.filter(t => t.status === col)
+        const colTasks = topLevelTasks.filter(t => t.status === col)
         const colIcons = { todo: 'radio_button_unchecked', in_progress: 'pending', done: 'check_circle', blocked: 'block' }
         return (
           <div key={col} className="bg-surface-container rounded-2xl border border-outline-variant overflow-hidden">
@@ -415,6 +533,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                   const team = eventTeams.find(t => t.id === task.event_team_id)
                   const canAssign = canManage || (team && team.created_by === user?.id)
                   const teamMembers = team?.activeMembers?.map(m => m.member).filter(Boolean) || []
+                  const subTasks = getSubTasks(task.id)
 
                   return (
                     <div key={task.id} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-3 hover:border-primary/30 transition-all group">
@@ -427,6 +546,39 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                             title={task.assignee.full_name} className="w-5 h-5 rounded-full object-cover border border-outline-variant" />
                         )}
                       </div>
+
+                      {/* Sub-tasks list */}
+                      {subTasks.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-outline-variant/30 space-y-1">
+                          <div className="text-[9px] font-bold font-label-caps uppercase text-on-surface-variant mb-1">Sub-Tasks ({subTasks.length})</div>
+                          {subTasks.map(sub => (
+                            <div key={sub.id} className="flex items-center gap-1.5 text-xs">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sub.status === 'done' ? 'bg-success' : sub.status === 'in_progress' ? 'bg-primary' : sub.status === 'blocked' ? 'bg-error' : 'bg-outline'}`} />
+                              <span className={`flex-1 truncate ${sub.status === 'done' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{sub.title}</span>
+                              {(canManage || sub.assigned_to === user?.id) && (
+                                <select
+                                  value={sub.status}
+                                  onChange={e => onUpdateStatus(sub.id, e.target.value)}
+                                  className="text-[9px] bg-surface-container border border-outline-variant/50 rounded px-1 py-0.5 text-on-surface-variant focus:outline-none"
+                                >
+                                  {STATUS_COLS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                                </select>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add Sub-Task button */}
+                      {(canManage || team?.created_by === user?.id) && (
+                        <button
+                          onClick={() => onCreateSubTask(task)}
+                          className="mt-2 w-full text-[10px] flex items-center justify-center gap-1 py-1 rounded-lg border border-dashed border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <span className="material-symbols-outlined text-xs">add</span> Add Sub-Task
+                        </button>
+                      )}
+
                       {canManage && (
                         <select
                           value={task.status}
@@ -483,7 +635,10 @@ export const EventDetail = () => {
   const [activeTab, setActiveTab] = useState('overview')
   const [joinModal, setJoinModal] = useState(null) // team object
   const [showCreateTeam, setShowCreateTeam] = useState(false)
+  const [createSubTeamParentId, setCreateSubTeamParentId] = useState(null) // parent team id for nested creation
   const [showCreateTask, setShowCreateTask] = useState(false)
+  const [createSubTaskParent, setCreateSubTaskParent] = useState(null) // { id, title, eventTeamId }
+  const [selectedChatTeamId, setSelectedChatTeamId] = useState(null)
   const { members } = useMembers()
 
   const {
@@ -516,6 +671,10 @@ export const EventDetail = () => {
 
   const myTeamsCount = eventTeams.filter(t => t.isMember).length
   const pendingRequestsCount = eventTeams.reduce((acc, t) => acc + t.pendingMembers.length, 0)
+  // Only top-level teams (no parent) for rendering the top-level grid
+  const topLevelTeams = eventTeams.filter(t => !t.parent_team_id)
+  // My teams I'm a member of (for chat rooms)
+  const myTeams = eventTeams.filter(t => t.isMember || canManage)
 
   if (loadingEvent) return <DetailPageSkeleton variant="event" />
 
@@ -573,6 +732,7 @@ export const EventDetail = () => {
           { id: 'overview', label: 'Overview', icon: 'info' },
           { id: 'teams', label: `Teams (${eventTeams.length})`, icon: 'groups', badge: canManage && pendingRequestsCount > 0 ? pendingRequestsCount : null },
           { id: 'tasks', label: 'Tasks', icon: 'task_alt' },
+          { id: 'chat', label: 'Team Chat', icon: 'forum' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -672,18 +832,20 @@ export const EventDetail = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {eventTeams.map(team => (
+              {topLevelTeams.map(team => (
                 <TeamCard
                   key={team.id}
                   team={team}
                   canManage={canManage}
                   user={user}
                   allMembers={members || []}
+                  allTeams={eventTeams}
                   onRequestJoin={setJoinModal}
                   onApprove={approveJoinRequest}
                   onReject={rejectJoinRequest}
                   onAddMember={addMemberToTeam}
                   onRemoveMember={removeMemberFromTeam}
+                  onCreateSubTeam={(parentId) => setCreateSubTeamParentId(parentId)}
                 />
               ))}
             </div>
@@ -701,8 +863,68 @@ export const EventDetail = () => {
               <p className="text-xs text-on-surface-variant/60 mt-1">Create sub-teams first, then add tasks.</p>
             </div>
           ) : (
-            <KanbanBoard eventTeams={eventTeams} canManage={canManage} user={user} onUpdateStatus={updateTaskStatus} onAssignTask={assignTask} />
+            <KanbanBoard
+              eventTeams={eventTeams}
+              canManage={canManage}
+              user={user}
+              onUpdateStatus={updateTaskStatus}
+              onAssignTask={assignTask}
+              onCreateSubTask={(parentTask) => setCreateSubTaskParent(parentTask)}
+            />
           )}
+        </div>
+      )}
+
+      {/* Tab: Team Chat */}
+      {activeTab === 'chat' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+          {/* Sidebar: team list */}
+          <div className="md:col-span-1 bg-surface-container rounded-2xl border border-outline-variant overflow-hidden">
+            <div className="px-4 py-3 border-b border-outline-variant bg-surface-container-high">
+              <h3 className="text-xs font-bold font-label-caps uppercase text-on-surface-variant">Sub-Team Rooms</h3>
+            </div>
+            <div className="p-2 space-y-1">
+              {myTeams.length === 0 ? (
+                <p className="text-xs text-on-surface-variant italic text-center py-6">You're not in any sub-teams yet.</p>
+              ) : (
+                myTeams.map(team => (
+                  <button
+                    key={team.id}
+                    onClick={() => setSelectedChatTeamId(team.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all ${
+                      selectedChatTeamId === team.id ? 'bg-primary text-on-primary' : 'hover:bg-surface-container-high text-on-surface'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">{team.parent_team_id ? 'hub' : 'groups'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold truncate">{team.name}</div>
+                      {team.parent_team_id && <div className={`text-[9px] font-label-caps uppercase ${selectedChatTeamId === team.id ? 'text-on-primary/70' : 'text-on-surface-variant'}`}>Sub-Team</div>}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          {/* Chat area */}
+          <div className="md:col-span-3">
+            {selectedChatTeamId ? (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="material-symbols-outlined text-primary">forum</span>
+                  <h3 className="font-bold text-on-surface">{myTeams.find(t => t.id === selectedChatTeamId)?.name} — Chat</h3>
+                </div>
+                <SubTeamChatRoom eventTeamId={selectedChatTeamId} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[500px] bg-surface-container rounded-2xl border border-outline-variant border-dashed">
+                <div className="text-center">
+                  <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-3 block">forum</span>
+                  <p className="text-on-surface-variant font-semibold">Select a sub-team</p>
+                  <p className="text-xs text-on-surface-variant/60 mt-1">Choose a team from the left to open its chat room.</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -720,6 +942,13 @@ export const EventDetail = () => {
           onCreate={createEventTeam}
         />
       )}
+      {createSubTeamParentId && (
+        <CreateTeamModal
+          parentTeamId={createSubTeamParentId}
+          onClose={() => setCreateSubTeamParentId(null)}
+          onCreate={createEventTeam}
+        />
+      )}
       {showCreateTask && eventTeams.length > 0 && (
         <CreateTaskModal
           eventTeams={eventTeams}
@@ -727,6 +956,18 @@ export const EventDetail = () => {
           user={user}
           canManage={canManage}
           onClose={() => setShowCreateTask(false)}
+          onCreate={createEventTask}
+        />
+      )}
+      {createSubTaskParent && eventTeams.length > 0 && (
+        <CreateTaskModal
+          eventTeams={eventTeams}
+          allMembers={members || []}
+          user={user}
+          canManage={canManage}
+          parentTaskId={createSubTaskParent.id}
+          parentTaskTitle={createSubTaskParent.title}
+          onClose={() => setCreateSubTaskParent(null)}
           onCreate={createEventTask}
         />
       )}

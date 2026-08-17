@@ -14,14 +14,12 @@ export const Chat = () => {
 
   // Derive IDs for useChat based on active chat
   const receiverId = activeChat.type === 'dm' ? activeChat.data?.id ?? null : null
-  const teamId =
-    activeChat.type === 'department' || activeChat.type === 'event_team'
-      ? activeChat.data?.id ?? null
-      : null
+  const teamId = activeChat.type === 'department' ? activeChat.data?.id ?? null : null
+  const eventTeamId = activeChat.type === 'event_team' ? activeChat.data?.id ?? null : null
 
   // Hook: chat messages
   const { messages, loading, sendMessage, deleteMessage, canDeleteMessage, getTimeRemainingForDelete } =
-    useChat(receiverId, teamId)
+    useChat(receiverId, teamId, eventTeamId)
 
   // Hook: teams/departments
   const { myTeams: myDepartments } = useTeams()

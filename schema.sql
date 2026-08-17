@@ -366,6 +366,7 @@ create table public.messages (
   id uuid primary key default gen_random_uuid(),
   sender_id uuid references public.profiles(id) on delete cascade,
   receiver_id uuid references public.profiles(id) on delete cascade,
+  event_team_id uuid references public.event_teams(id) on delete cascade,
   content text not null,
   is_read boolean default false,
   reply_to_id uuid references public.messages(id) on delete set null,
@@ -379,14 +380,32 @@ alter table public.messages enable row level security;
 create policy "Users can read their own messages or global lobby messages"
   on public.messages for select
   using (
-    receiver_id is null 
+    (receiver_id is null and event_team_id is null) 
     or auth.uid() = sender_id 
     or auth.uid() = receiver_id
+    or (
+      event_team_id is not null and exists (
+        select 1 from public.event_team_members
+        where event_team_members.event_team_id = messages.event_team_id
+          and event_team_members.member_id = auth.uid()
+          and event_team_members.status = 'active'
+      )
+    )
   );
 
 create policy "Users can insert messages"
   on public.messages for insert
-  with check (auth.uid() = sender_id);
+  with check (
+    auth.uid() = sender_id
+    and (
+      event_team_id is null or exists (
+        select 1 from public.event_team_members
+        where event_team_members.event_team_id = messages.event_team_id
+          and event_team_members.member_id = auth.uid()
+          and event_team_members.status = 'active'
+      )
+    )
+  );
 
 create policy "Users can update read status of received messages"
   on public.messages for update
@@ -664,6 +683,7 @@ create table public.team_join_requests (
 create table public.event_teams (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references public.events(id) on delete cascade,
+  parent_team_id uuid references public.event_teams(id) on delete cascade,
   name text not null,
   description text,
   max_members integer,
@@ -688,6 +708,7 @@ create table public.event_team_members (
 create table public.event_tasks (
   id uuid primary key default gen_random_uuid(),
   event_team_id uuid not null references public.event_teams(id) on delete cascade,
+  parent_task_id uuid references public.event_tasks(id) on delete cascade,
   event_id uuid not null references public.events(id) on delete cascade,
   title text not null,
   description text,

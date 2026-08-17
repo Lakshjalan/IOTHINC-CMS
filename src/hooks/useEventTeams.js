@@ -29,7 +29,7 @@ export const useEventTeams = (eventId) => {
             member:profiles!event_team_members_member_id_fkey(id, full_name, avatar_url, department)
           ),
           event_tasks(
-            id, title, description, status, priority, due_date, assigned_to,
+            id, title, description, status, priority, due_date, assigned_to, parent_task_id,
             assignee:profiles!event_tasks_assigned_to_fkey(id, full_name, avatar_url)
           )
         `)
@@ -68,10 +68,17 @@ export const useEventTeams = (eventId) => {
 
   // Mutations with cache invalidation
   const createEventTeam = useCachedMutation(
-    async ({ name, description, maxMembers }) => {
+    async ({ name, description, maxMembers, parentTeamId }) => {
       const { data, error: err } = await supabase
         .from('event_teams')
-        .insert({ event_id: eventId, name, description, max_members: maxMembers || null, created_by: user?.id })
+        .insert({
+          event_id: eventId,
+          name,
+          description,
+          max_members: maxMembers || null,
+          created_by: user.id,
+          parent_team_id: parentTeamId || null
+        })
         .select()
         .single()
       if (err) throw err
@@ -169,7 +176,7 @@ export const useEventTeams = (eventId) => {
   )
 
   const createEventTask = useCachedMutation(
-    async ({ eventTeamId, title, description, assignedTo, priority, dueDate }) => {
+    async ({ eventTeamId, title, description, assignedTo, priority, dueDate, parentTaskId }) => {
       const { data, error: err } = await supabase
         .from('event_tasks')
         .insert({
@@ -180,8 +187,8 @@ export const useEventTeams = (eventId) => {
           assigned_to: assignedTo || null,
           priority: priority || 'medium',
           due_date: dueDate || null,
-          created_by: user?.id,
-          status: 'todo'
+          created_by: user.id,
+          parent_task_id: parentTaskId || null
         })
         .select()
         .single()
