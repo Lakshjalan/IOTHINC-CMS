@@ -18,6 +18,16 @@ BEGIN
     AND status = 'active'
   LIMIT 1;
   
+  IF is_mgr THEN
+    RETURN true;
+  END IF;
+
+  SELECT true INTO is_mgr
+  FROM public.event_teams
+  WHERE id = target_team_id
+    AND created_by = auth.uid()
+  LIMIT 1;
+  
   RETURN COALESCE(is_mgr, false);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

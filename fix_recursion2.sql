@@ -10,6 +10,10 @@ BEGIN
       AND member_id = auth.uid() 
       AND role = 'manager' 
       AND status = 'active'
+  ) OR EXISTS (
+    SELECT 1 FROM public.event_teams
+    WHERE id = team_id
+      AND created_by = auth.uid()
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
