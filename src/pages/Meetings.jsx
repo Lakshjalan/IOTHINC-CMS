@@ -44,7 +44,7 @@ const modalContentVariants = {
 
 export const Meetings = () => {
   const { user, role } = useAuth()
-  const canSchedule = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canSchedule = ['chairperson', 'vice_chairperson'].includes(role)
   
   const { 
     meetings, 

@@ -90,7 +90,7 @@ const itemVariants = {
 
 export const Scheduler = () => {
   const { role, user, profile } = useAuth()
-  const isLead = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const isLead = ['chairperson', 'vice_chairperson'].includes(role)
   
   const { 
     mySchedule, 

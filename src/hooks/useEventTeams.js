@@ -25,7 +25,7 @@ export const useEventTeams = (eventId) => {
         .select(`
           *,
           event_team_members(
-            id, member_id, status, request_message, joined_at,
+            id, member_id, status, role, request_message, joined_at,
             member:profiles!event_team_members_member_id_fkey(id, full_name, avatar_url, department)
           ),
           event_tasks(
@@ -175,6 +175,21 @@ export const useEventTeams = (eventId) => {
     }
   )
 
+  const updateMemberRole = useCachedMutation(
+    async (eventTeamId, memberId, role) => {
+      const { error: err } = await supabase
+        .from('event_team_members')
+        .update({ role })
+        .eq('event_team_id', eventTeamId)
+        .eq('member_id', memberId)
+      if (err) throw err
+    },
+    {
+      invalidateTags: [EVENT_TEAMS_CACHE_TAG, `event_teams_${eventId}`],
+      onSuccess: () => refetch()
+    }
+  )
+
   const createEventTask = useCachedMutation(
     async ({ eventTeamId, title, description, assignedTo, priority, dueDate, parentTaskId }) => {
       const { data, error: err } = await supabase
@@ -257,5 +272,6 @@ export const useEventTeams = (eventId) => {
     updateTaskStatus,
     deleteEventTask,
     assignTask,
+    updateMemberRole,
   }
 }

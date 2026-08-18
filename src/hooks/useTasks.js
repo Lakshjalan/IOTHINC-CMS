@@ -6,14 +6,14 @@ import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
 
 // Cache key generators
 const getTasksCacheKey = (statusFilter, viewFilter, user, role) => {
-  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson'].includes(role)
   return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${isAdminOrCoordinator ? 'all' : user?.id || 'none'}`
 }
 const TASKS_CACHE_TAG = 'tasks'
 
 export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
   const { user, role } = useAuth()
-  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson'].includes(role)
 
   // Use cached query for fetching
   const {

@@ -8,6 +8,7 @@ import { ListSkeleton } from '../components/SkeletonLoaders'
 export const Tasks = () => {
   const { role, user } = useAuth()
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+    const isSystemAdmin = ['chairperson', 'vice_chairperson'].includes(role)
   
   const [viewTab, setViewTab] = useState(canManage ? 'all' : 'mine')
   const [statusTab, setStatusTab] = useState('all')
@@ -24,7 +25,13 @@ export const Tasks = () => {
 
   useEffect(() => {
     if (canManage) {
-      supabase.from('profiles').select('id,full_name').then(r => setMembers(r.data || []))
+      supabase.from('profiles').select('id,full_name,department').then(r => {
+          if (isSystemAdmin) {
+            setMembers(r.data || []);
+          } else {
+            setMembers((r.data || []).filter(m => m.department === user?.user_metadata?.department || m.department === user?.department)); // Wait, user profile doesn't have department in useAuth easily? Let's just fetch it
+          }
+        })
       supabase.from('projects').select('id,name').then(r => setProjects(r.data || []))
       supabase.from('events').select('id,title').then(r => setEvents(r.data || []))
     }

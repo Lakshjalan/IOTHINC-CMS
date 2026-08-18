@@ -616,7 +616,7 @@ const SubmitModal = ({ comp, user, allMembers, onClose, onSubmit, submitting }) 
 // ── Main Page ─────────────────────────────────────────────────
 export const Competitions = () => {
   const { role, user } = useAuth()
-  const canHost = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canHost = ['chairperson', 'vice_chairperson'].includes(role)
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
 
   const { competitions, loading, submitEntry, deleteCompetition, refetch } = useCompetitions()

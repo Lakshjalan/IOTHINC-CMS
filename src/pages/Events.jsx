@@ -8,7 +8,7 @@ import { GridSkeleton } from '../components/SkeletonLoaders'
 export const Events = () => {
   const { role } = useAuth()
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
-  const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canManage = ['chairperson', 'vice_chairperson'].includes(role)
   const [statusTab, setStatusTab] = useState('All')
   const { events, loading, createEvent, deleteEvent } = useEvents(statusTab)
   const { sendNotification } = useNotifications()

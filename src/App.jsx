@@ -139,7 +139,7 @@ const Page = ({ children, allowedRoles }) => (
 const ContributionsRedirect = () => {
   const { role } = useAuth()
   const [searchParams] = useSearchParams()
-  const isAdmin = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const isAdmin = ['chairperson', 'vice_chairperson'].includes(role)
   return (
     <Navigate 
       to={isAdmin 
@@ -192,21 +192,21 @@ function AppRoutes() {
         <Route path="/projects"           element={<Page><Projects /></Page>} />
         <Route path="/projects/:id"       element={<Page><ProjectDetail /></Page>} />
         <Route path="/teams"              element={<Page><Teams /></Page>} />
-        <Route path="/teams/new" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CreateTeam /></Page>} />
+        <Route path="/teams/new" element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><CreateTeam /></Page>} />
         <Route path="/events"             element={<Page><Events /></Page>} />
         <Route path="/events/:id"         element={<Page><EventDetail /></Page>} />
         <Route path="/events/:eventId/team/:teamId" element={<Page><EventTeamDetail /></Page>} />
         <Route path="/competitions"       element={<Page><Competitions /></Page>} />
-        <Route path="/competitions/host" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><CompetitionHost /></Page>} />
+        <Route path="/competitions/host" element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><CompetitionHost /></Page>} />
         <Route path="/tasks"              element={<Page><Tasks /></Page>} />
         <Route path="/learn"              element={<Page><Learn /></Page>} />
-        <Route path="/learn/new"          element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><NewResource /></Page>} />
+        <Route path="/learn/new"          element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><NewResource /></Page>} />
         <Route path="/contributions"      element={<ContributionsRedirect />} />
         <Route path="/contributions/new"  element={<Page><NewContribution /></Page>} />
         <Route path="/progress"           element={<Page><ProgressTrackerMember /></Page>} />
-        <Route path="/progress/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><ProgressTrackerAdmin /></Page>} />
-        <Route path="/admin" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminPanel /></Page>} />
-        <Route path="/admin/blogs" element={<Page allowedRoles={['chairperson','vice_chairperson','department_lead']}><AdminBlogs /></Page>} />
+        <Route path="/progress/admin" element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><ProgressTrackerAdmin /></Page>} />
+        <Route path="/admin" element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><AdminPanel /></Page>} />
+        <Route path="/admin/blogs" element={<Page allowedRoles={['chairperson', 'vice_chairperson']}><AdminBlogs /></Page>} />
         <Route path="/storage" element={<Page allowedRoles={['chairperson','vice_chairperson']}><StorageDashboard /></Page>} />
         <Route path="/chat"               element={<Page><Chat /></Page>} />
         <Route path="/leadership"         element={<Page><Leadership /></Page>} />

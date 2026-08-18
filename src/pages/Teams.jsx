@@ -296,7 +296,7 @@ const TeamCard = ({ team, canManage, isAdmin, user, myRequest, pendingCount, onR
 export const Teams = () => {
   const { role, user } = useAuth()
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
-  const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canManage = ['chairperson', 'vice_chairperson'].includes(role)
   const { teams, myTeams, loading, refetch: refetchTeams, removeMember, addMember, deleteTeam } = useTeams()
   const { members } = useMembers()
   const { requests, myRequests, approveRequest, rejectRequest, requestJoin, getMyRequestStatus } = useTeamJoinRequests()

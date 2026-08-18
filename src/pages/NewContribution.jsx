@@ -57,7 +57,7 @@ export const NewContribution = () => {
       }
       await addContribution(contributionData, file)
       alert('Contribution added successfully!')
-      const isAdmin = role && ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+      const isAdmin = role && ['chairperson', 'vice_chairperson'].includes(role)
       navigate(isAdmin ? '/progress/admin' : '/progress')
     } catch (err) {
       alert('Error: ' + err.message)

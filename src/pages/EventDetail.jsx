@@ -136,18 +136,18 @@ const CreateTeamModal = ({ onClose, onCreate, parentTeamId = null }) => {
   )
 }
 
-const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onCreate, parentTaskId = null, parentTaskTitle = null }) => {
-  const allowedTeams = canManage ? eventTeams : eventTeams.filter(t => t.created_by === user?.id)
+const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onCreate, parentTaskId = null, parentTaskTitle = null, eventOrganiserId }) => {
+  const allowedTeams = canManage || eventOrganiserId === user?.id ? eventTeams : eventTeams.filter(t => t.created_by === user?.id || t.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager'))
   const [form, setForm] = useState({ eventTeamId: allowedTeams[0]?.id || '', title: '', description: '', assignedTo: '', priority: 'medium', dueDate: '' })
   const selectedTeam = allowedTeams.find(t => t.id === form.eventTeamId)
-  const assignableMembers = canManage ? allMembers : (selectedTeam?.activeMembers?.map(m => m.member).filter(Boolean) || [])
+  const assignableMembers = canManage || eventOrganiserId === user?.id ? allMembers : (selectedTeam?.activeMembers?.map(m => m.member).filter(Boolean) || [])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!canManage && form.assignedTo && !assignableMembers.some(m => m.id === form.assignedTo)) {
+    if (!(canManage || eventOrganiserId === user?.id) && form.assignedTo && !assignableMembers.some(m => m.id === form.assignedTo)) {
       setForm(prev => ({ ...prev, assignedTo: '' }))
     }
-  }, [form.eventTeamId, assignableMembers, canManage])
+  }, [form.eventTeamId, assignableMembers, canManage, eventOrganiserId, user?.id])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -214,7 +214,7 @@ const CreateTaskModal = ({ eventTeams, allMembers, canManage, user, onClose, onC
 }
 
 // ── Team Card (Teams Tab) ────────────────────────────────────
-const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember, onCreateSubTeam, depth = 0 }) => {
+const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequestJoin, onApprove, onReject, onAddMember, onRemoveMember, onCreateSubTeam, onUpdateMemberRole, eventOrganiserId, depth = 0 }) => {
   const [expanded, setExpanded] = useState(true)
   const [showManage, setShowManage] = useState(false)
   const [addMemberId, setAddMemberId] = useState('')
@@ -324,7 +324,7 @@ const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequ
         </div>
 
         {/* Admin manage panel */}
-        {showManage && (canManage || team.created_by === user?.id) && (
+        {showManage && (canManage || team.created_by === user?.id || eventOrganiserId === user?.id || team?.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager')) && (
           <div className="mt-4 border-t border-outline-variant/30 pt-4 space-y-3">
             {/* Pending requests */}
             {team.pendingMembers.length > 0 && (
@@ -357,6 +357,10 @@ const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequ
                   <img src={am.member?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(am.member?.full_name)}`}
                     className="w-7 h-7 rounded-full object-cover border border-outline-variant" />
                   <span className="text-sm text-on-surface flex-1">{am.member?.full_name}</span>
+                  <select value={am.role || 'member'} onChange={(e) => onUpdateMemberRole(team.id, am.member_id, e.target.value)} className="text-xs bg-surface-container-low border border-outline-variant rounded p-1 text-on-surface focus:outline-none ml-2 mr-2">
+                    <option value="member">Member</option>
+                    <option value="manager">Manager</option>
+                  </select>
                   <button onClick={() => onRemoveMember(team.id, am.member_id)} className="p-1 hover:bg-error/20 rounded transition-all">
                     <span className="material-symbols-outlined text-error text-sm">person_remove</span>
                   </button>
@@ -481,7 +485,7 @@ const SubTeamChatRoom = ({ eventTeamId }) => {
 }
 
 // ── Kanban Task Board ────────────────────────────────────────
-const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask, onCreateSubTask }) => {
+const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask, onCreateSubTask, eventOrganiserId }) => {
   const allTasks = eventTeams.flatMap(team =>
     (team.event_tasks || []).map(t => ({ ...t, teamName: team.name }))
   )
@@ -510,7 +514,9 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
               ) : (
                 colTasks.map(task => {
                   const team = eventTeams.find(t => t.id === task.event_team_id)
-                  const canAssign = canManage || (team && team.created_by === user?.id)
+                  const isManager = team?.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager');
+                  const canAssign = canManage || (team && team.created_by === user?.id) || eventOrganiserId === user?.id || isManager;
+                  const canManageTask = canAssign;
                   const teamMembers = team?.activeMembers?.map(m => m.member).filter(Boolean) || []
                   const subTasks = getSubTasks(task.id)
 
@@ -534,7 +540,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                             <div key={sub.id} className="flex items-center gap-1.5 text-xs">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sub.status === 'done' ? 'bg-success' : sub.status === 'in_progress' ? 'bg-primary' : sub.status === 'blocked' ? 'bg-error' : 'bg-outline'}`} />
                               <span className={`flex-1 truncate ${sub.status === 'done' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{sub.title}</span>
-                              {(canManage || sub.assigned_to === user?.id) && (
+                              {(canManageTask || sub.assigned_to === user?.id) && (
                                 <select
                                   value={sub.status}
                                   onChange={e => onUpdateStatus(sub.id, e.target.value)}
@@ -549,7 +555,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                       )}
 
                       {/* Add Sub-Task button */}
-                      {(canManage || team?.created_by === user?.id) && (
+                      {(canManageTask || team?.created_by === user?.id) && (
                         <button
                           onClick={() => onCreateSubTask(task)}
                           className="mt-2 w-full text-[10px] flex items-center justify-center gap-1 py-1 rounded-lg border border-dashed border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors opacity-0 group-hover:opacity-100"
@@ -558,7 +564,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                         </button>
                       )}
 
-                      {canManage && (
+                      {canManageTask && (
                         <select
                           value={task.status}
                           onChange={e => onUpdateStatus(task.id, e.target.value)}
@@ -567,7 +573,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                           {STATUS_COLS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                         </select>
                       )}
-                      {!canManage && task.assigned_to === user?.id && (
+                      {!canManageTask && task.assigned_to === user?.id && (
                         <select
                           value={task.status}
                           onChange={e => onUpdateStatus(task.id, e.target.value)}
@@ -607,7 +613,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
 export const EventDetail = () => {
   const { id } = useParams()
   const { user, role } = useAuth()
-  const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canManage = ['chairperson', 'vice_chairperson'].includes(role)
 
   const [event, setEvent] = useState(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
@@ -694,7 +700,7 @@ export const EventDetail = () => {
               <span className="material-symbols-outlined text-sm">group_add</span> Add Sub-Team
             </button>
           )}
-          {eventTeams.length > 0 && (canManage || eventTeams.some(t => t.created_by === user?.id)) && (
+          {eventTeams.length > 0 && (canManage || event?.organiser_id === user?.id || eventTeams.some(t => t.created_by === user?.id || t.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager'))) && (
             <button onClick={() => setShowCreateTask(true)} className="flex items-center gap-1.5 px-4 py-2.5 bg-surface-container border border-outline-variant text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container-high transition-all">
               <span className="material-symbols-outlined text-sm">add_task</span> Add Task
             </button>

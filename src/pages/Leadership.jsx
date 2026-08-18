@@ -12,7 +12,7 @@ export const Leadership = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .in('role', ['chairperson', 'vice_chairperson', 'department_lead'])
+        .in('role', ['chairperson', 'vice_chairperson'])
         .order('role', { ascending: true })
       
       if (error) throw error

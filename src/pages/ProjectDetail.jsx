@@ -17,7 +17,7 @@ export const ProjectDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { role, user } = useAuth()
-  const canModify = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canModify = ['chairperson', 'vice_chairperson'].includes(role)
   const { members } = useMembers()
 
   const [project, setProject] = useState(null)

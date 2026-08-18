@@ -62,7 +62,7 @@ export const AdminPanel = () => {
 
 
 
-  if (!['chairperson', 'vice_chairperson', 'department_lead'].includes(role)) return <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full"><div className="text-center text-error text-lg mt-20">Access denied. Restricted Area.</div></main>
+  if (!['chairperson', 'vice_chairperson'].includes(role)) return <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full"><div className="text-center text-error text-lg mt-20">Access denied. Restricted Area.</div></main>
 
   return (
     <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full">

@@ -40,7 +40,7 @@ const AvatarStack = ({ members = [], max = 4 }) => (
   </div>
 )
 
-const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask }) => {
+const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask, eventOrganiserId }) => {
   const allTasks = eventTeams.flatMap(team =>
     (team.event_tasks || []).map(t => ({ ...t, teamName: team.name }))
   )
@@ -67,7 +67,9 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
               ) : (
                 colTasks.map(task => {
                   const team = eventTeams.find(t => t.id === task.event_team_id)
-                  const canAssign = canManage || (team && team.created_by === user?.id)
+                  const isManager = team?.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager');
+                  const canAssign = canManage || (team && team.created_by === user?.id) || eventOrganiserId === user?.id || isManager;
+                  const canManageTask = canAssign;
                   const teamMembers = team?.activeMembers?.map(m => m.member).filter(Boolean) || []
                   const subTasks = getSubTasks(task.id)
 
@@ -90,7 +92,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                             <div key={sub.id} className="flex items-center gap-1.5 text-xs">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sub.status === 'done' ? 'bg-success' : sub.status === 'in_progress' ? 'bg-primary' : sub.status === 'blocked' ? 'bg-error' : 'bg-outline'}`} />
                               <span className={`flex-1 truncate ${sub.status === 'done' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{sub.title}</span>
-                              {(canManage || sub.assigned_to === user?.id) && (
+                              {(canManageTask || sub.assigned_to === user?.id) && (
                                 <select
                                   value={sub.status}
                                   onChange={e => onUpdateStatus(sub.id, e.target.value)}
@@ -104,7 +106,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
                         </div>
                       )}
 
-                      {(canManage || task.assigned_to === user?.id) && (
+                      {(canManageTask || task.assigned_to === user?.id) && (
                         <select
                           value={task.status}
                           onChange={e => onUpdateStatus(task.id, e.target.value)}
@@ -144,7 +146,7 @@ export const EventTeamDetail = () => {
   const { eventId, teamId } = useParams()
   const { user, role } = useAuth()
   const navigate = useNavigate()
-  const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const canManage = ['chairperson', 'vice_chairperson'].includes(role)
   
   const [event, setEvent] = useState(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
@@ -225,6 +227,7 @@ export const EventTeamDetail = () => {
           user={user}
           onUpdateStatus={updateTaskStatus}
           onAssignTask={assignTask}
+          eventOrganiserId={event?.organiser_id}
         />
       </div>
 

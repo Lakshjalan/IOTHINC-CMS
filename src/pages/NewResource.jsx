@@ -17,7 +17,7 @@ export const NewResource = () => {
 
   useEffect(() => { document.title = "IOTHINC - Training & Learning" }, [])
 
-  if (!['chairperson', 'vice_chairperson', 'department_lead'].includes(role)) return <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full"><div className="text-center text-error text-lg mt-20">Access denied. Top positions only.</div></main>
+  if (!['chairperson', 'vice_chairperson'].includes(role)) return <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full"><div className="text-center text-error text-lg mt-20">Access denied. Top positions only.</div></main>
 
   const ALLOWED_TYPES = {
     'application/pdf': 'PDF',
