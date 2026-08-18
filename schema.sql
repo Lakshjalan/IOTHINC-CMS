@@ -764,6 +764,24 @@ create policy "Team leads and admin manage requests" on public.team_join_request
 create policy "Read event_teams" on public.event_teams for select using (auth.role() = 'authenticated');
 create policy "Manage event_teams" on public.event_teams for all using (public.get_my_role() in ('chairperson', 'vice_chairperson', 'department_lead'));
 
+create policy "Organisers manage event_teams" on public.event_teams for all using (
+  event_id in (select id from public.events where organiser_id = auth.uid())
+) with check (
+  event_id in (select id from public.events where organiser_id = auth.uid())
+);
+
+create policy "Managers can manage subteams" on public.event_teams for all using (
+  parent_team_id is not null and public.is_event_team_manager(parent_team_id)
+) with check (
+  parent_team_id is not null and public.is_event_team_manager(parent_team_id)
+);
+
+create policy "Managers update their teams" on public.event_teams for update using (
+  public.is_event_team_manager(id)
+) with check (
+  public.is_event_team_manager(id)
+);
+
 -- Policies for event_team_members
 create policy "Read event_team_members" on public.event_team_members for select using (auth.role() = 'authenticated');
 create policy "Member can request join event team" on public.event_team_members for insert with check (auth.uid() = member_id);
