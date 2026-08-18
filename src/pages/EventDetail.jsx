@@ -357,7 +357,14 @@ const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequ
                   <img src={am.member?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(am.member?.full_name)}`}
                     className="w-7 h-7 rounded-full object-cover border border-outline-variant" />
                   <span className="text-sm text-on-surface flex-1">{am.member?.full_name}</span>
-                  <select value={am.role || 'member'} onChange={(e) => onUpdateMemberRole(team.id, am.member_id, e.target.value)} className="text-xs bg-surface-container-low border border-outline-variant rounded p-1 text-on-surface focus:outline-none ml-2 mr-2">
+                  <select value={am.role || 'member'} onChange={async (e) => {
+                    try {
+                      await onUpdateMemberRole(team.id, am.member_id, e.target.value);
+                      alert('Role updated to ' + e.target.value + '!');
+                    } catch (err) {
+                      alert('Failed to update role: ' + (err.message || 'Unknown error. Check RLS policies.'));
+                    }
+                  }} className="text-xs bg-surface-container-low border border-outline-variant rounded p-1 text-on-surface focus:outline-none ml-2 mr-2">
                     <option value="member">Member</option>
                     <option value="manager">Manager</option>
                   </select>
@@ -407,7 +414,8 @@ const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequ
                   onAddMember={onAddMember}
                   onRemoveMember={onRemoveMember}
                   onCreateSubTeam={onCreateSubTeam}
-                  depth={depth + 1}
+                  onUpdateMemberRole={onUpdateMemberRole}
+                    depth={depth + 1}
                 />
               </div>
             ))}
@@ -637,6 +645,7 @@ export const EventDetail = () => {
     createEventTask,
     updateTaskStatus,
     assignTask,
+    updateMemberRole,
   } = useEventTeams(id)
 
   const fetchEvent = async () => {
@@ -828,6 +837,7 @@ export const EventDetail = () => {
                   onAddMember={addMemberToTeam}
                   onRemoveMember={removeMemberFromTeam}
                   onCreateSubTeam={(parentId) => setCreateSubTeamParentId(parentId)}
+                    onUpdateMemberRole={updateMemberRole}
                 />
               ))}
             </div>
@@ -904,3 +914,4 @@ export const EventDetail = () => {
     </main>
   )
 }
+
