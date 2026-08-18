@@ -278,18 +278,18 @@ const TeamCard = ({ eventId, team, canManage, user, allMembers, allTeams, onRequ
             <button onClick={() => navigate(`/events/${eventId}/team/${team.id}`)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors rounded-lg font-bold">
               <span className="material-symbols-outlined text-sm">task_alt</span> Tasks
             </button>
-            {(canManage || team.created_by === user?.id) && (
-              <>
-                <button
-                  onClick={() => onCreateSubTeam(team.id)}
-                  className="text-xs flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">hub</span> Sub-Team
-                </button>
-                <button onClick={() => setShowManage(!showManage)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors text-on-surface-variant">
-                  <span className="material-symbols-outlined text-sm">manage_accounts</span> Manage
-                </button>
-              </>
+                        {(canManage || team.created_by === user?.id) && (
+              <button
+                onClick={() => onCreateSubTeam(team.id)}
+                className="text-xs flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">hub</span> Sub-Team
+              </button>
+            )}
+            {(canManage || team.created_by === user?.id || eventOrganiserId === user?.id || team?.activeMembers?.some(m => m.member_id === user?.id && m.role === 'manager')) && (
+              <button onClick={() => setShowManage(!showManage)} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-colors text-on-surface-variant">
+                <span className="material-symbols-outlined text-sm">manage_accounts</span> Manage
+              </button>
             )}
             {!canManage && (
               team.isMember ? (
