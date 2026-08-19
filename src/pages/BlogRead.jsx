@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { useBlogs } from '../hooks/useBlogs'
 import { ArrowLeft } from '@phosphor-icons/react/dist/icons/ArrowLeft'
 
-export const BlogRead = () => {
+const BlogRead = () => {
   const { id } = useParams()
   const { fetchBlogById } = useBlogs()
   const [blog, setBlog] = useState(null)
@@ -83,3 +83,6 @@ export const BlogRead = () => {
     </main>
   )
 }
+
+
+export default BlogRead;

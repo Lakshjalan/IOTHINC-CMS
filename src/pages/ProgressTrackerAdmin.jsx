@@ -6,7 +6,7 @@ import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
 import { TableSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
-export const ProgressTrackerAdmin = () => {
+const ProgressTrackerAdmin = () => {
   const { role, user } = useAuth()
   const navigate = useNavigate()
   const { members, loading } = useAllMembersProgress()
@@ -264,3 +264,5 @@ export const ProgressTrackerAdmin = () => {
     </main>
   )
 }
+
+export default ProgressTrackerAdmin;

@@ -10,8 +10,8 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { setupMessageListener } from './lib/firebase'
 
 /* Error Pages — eager (small, needed immediately on bad routes) */
-import { NotFound } from './pages/NotFound'
-import { Unauthorized } from './pages/Unauthorized'
+import NotFound from './pages/NotFound'
+import Unauthorized from './pages/Unauthorized'
 
 /* 
   Route-level code splitting via React.lazy().
@@ -19,35 +19,35 @@ import { Unauthorized } from './pages/Unauthorized'
   dramatically reducing the initial JS parse cost.
   Fix for Lighthouse: "Reduce unused JavaScript (est. savings 2,197 KiB)"
 */
-const Login          = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })))
-const Home           = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })))
-const Dashboard      = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })))
-const Members        = lazy(() => import('./pages/Members').then(m => ({ default: m.Members })))
-const MemberProfile  = lazy(() => import('./pages/MemberProfile').then(m => ({ default: m.MemberProfile })))
-const Projects       = lazy(() => import('./pages/Projects').then(m => ({ default: m.Projects })))
-const ProjectDetail  = lazy(() => import('./pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })))
-const Teams          = lazy(() => import('./pages/Teams').then(m => ({ default: m.Teams })))
-const CreateTeam     = lazy(() => import('./pages/CreateTeam').then(m => ({ default: m.CreateTeam })))
-const Events         = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })))
-const EventDetail    = lazy(() => import('./pages/EventDetail').then(m => ({ default: m.EventDetail })))
-const EventTeamDetail = lazy(() => import('./pages/EventTeamDetail').then(m => ({ default: m.EventTeamDetail })))
-const Competitions   = lazy(() => import('./pages/Competitions').then(m => ({ default: m.Competitions })))
-const CompetitionHost = lazy(() => import('./pages/CompetitionHost').then(m => ({ default: m.CompetitionHost })))
-const Tasks          = lazy(() => import('./pages/Tasks').then(m => ({ default: m.Tasks })))
+const Login          = lazy(() => import('./pages/Login'))
+const Home           = lazy(() => import('./pages/Home'))
+const Dashboard      = lazy(() => import('./pages/Dashboard'))
+const Members        = lazy(() => import('./pages/Members'))
+const MemberProfile  = lazy(() => import('./pages/MemberProfile'))
+const Projects       = lazy(() => import('./pages/Projects'))
+const ProjectDetail  = lazy(() => import('./pages/ProjectDetail'))
+const Teams          = lazy(() => import('./pages/Teams'))
+const CreateTeam     = lazy(() => import('./pages/CreateTeam'))
+const Events         = lazy(() => import('./pages/Events'))
+const EventDetail    = lazy(() => import('./pages/EventDetail'))
+const EventTeamDetail = lazy(() => import('./pages/EventTeamDetail'))
+const Competitions   = lazy(() => import('./pages/Competitions'))
+const CompetitionHost = lazy(() => import('./pages/CompetitionHost'))
+const Tasks          = lazy(() => import('./pages/Tasks'))
 const Learn          = lazy(() => import('./pages/Learn'))
-const NewResource    = lazy(() => import('./pages/NewResource').then(m => ({ default: m.NewResource })))
-const Contributions  = lazy(() => import('./pages/Contributions').then(m => ({ default: m.Contributions })))
-const NewContribution = lazy(() => import('./pages/NewContribution').then(m => ({ default: m.NewContribution })))
-const ProgressTrackerMember = lazy(() => import('./pages/ProgressTrackerMember').then(m => ({ default: m.ProgressTrackerMember })))
-const ProgressTrackerAdmin  = lazy(() => import('./pages/ProgressTrackerAdmin').then(m => ({ default: m.ProgressTrackerAdmin })))
-const AdminPanel     = lazy(() => import('./pages/AdminPanel').then(m => ({ default: m.AdminPanel })))
-const AdminBlogs     = lazy(() => import('./pages/AdminBlogs').then(m => ({ default: m.AdminBlogs })))
-const Chat           = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })))
-const Leadership     = lazy(() => import('./pages/Leadership').then(m => ({ default: m.Leadership })))
-const Meetings       = lazy(() => import('./pages/Meetings').then(m => ({ default: m.Meetings })))
-const Scheduler      = lazy(() => import('./pages/Scheduler').then(m => ({ default: m.Scheduler })))
-const StorageDashboard = lazy(() => import('./pages/StorageDashboard').then(m => ({ default: m.StorageDashboard })))
-const BlogRead       = lazy(() => import('./pages/BlogRead').then(m => ({ default: m.BlogRead })))
+const NewResource    = lazy(() => import('./pages/NewResource'))
+const Contributions  = lazy(() => import('./pages/Contributions'))
+const NewContribution = lazy(() => import('./pages/NewContribution'))
+const ProgressTrackerMember = lazy(() => import('./pages/ProgressTrackerMember'))
+const ProgressTrackerAdmin  = lazy(() => import('./pages/ProgressTrackerAdmin'))
+const AdminPanel     = lazy(() => import('./pages/AdminPanel'))
+const AdminBlogs     = lazy(() => import('./pages/AdminBlogs'))
+const Chat           = lazy(() => import('./pages/Chat'))
+const Leadership     = lazy(() => import('./pages/Leadership'))
+const Meetings       = lazy(() => import('./pages/Meetings'))
+const Scheduler      = lazy(() => import('./pages/Scheduler'))
+const StorageDashboard = lazy(() => import('./pages/StorageDashboard'))
+const BlogRead       = lazy(() => import('./pages/BlogRead'))
 
 import { motion, AnimatePresence } from 'motion/react'
 

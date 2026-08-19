@@ -5,7 +5,7 @@ import { useTeams } from '../hooks/useTeams'
 import { supabase } from '../supabaseClient'
 import { getCircuitBreaker } from '../lib/circuitBreaker'
 
-export const Chat = () => {
+const Chat = () => {
   const { user, profile } = useAuth()
   const [activeChat, setActiveChat] = useState({ type: 'lobby', data: null })
   // type: 'lobby' | 'dm' | 'department' | 'event_team'
@@ -796,3 +796,6 @@ export const Chat = () => {
     </main>
   )
 }
+
+
+export default Chat;

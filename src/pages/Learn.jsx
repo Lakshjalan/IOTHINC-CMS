@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
-export const Learn = () => {
+const Learn = () => {
   const { role } = useAuth()
   const canManage = (role === 'chairperson' || role === 'vice_chairperson')
   const [typeTab, setTypeTab] = useState('All')

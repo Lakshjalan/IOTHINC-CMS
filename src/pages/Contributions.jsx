@@ -7,7 +7,7 @@ import { useEvents } from '../hooks/useEvents'
 import { useMembers } from '../hooks/useMembers'
 import { GridSkeleton } from '../components/SkeletonLoaders'
 
-export const Contributions = () => {
+const Contributions = () => {
   const { user, role } = useAuth()
   const canManage = (role === 'chairperson' || role === 'vice_chairperson')
   const { contributions, loading, toggleFlagContribution, deleteContribution, refetch } = useContributions()
@@ -94,3 +94,6 @@ export const Contributions = () => {
     </main>
   )
 }
+
+
+export default Contributions;

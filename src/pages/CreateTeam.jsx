@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTeams } from '../hooks/useTeams'
 import { supabase } from '../supabaseClient'
 
-export const CreateTeam = () => {
+const CreateTeam = () => {
   const navigate = useNavigate()
   const { createTeam } = useTeams()
   
@@ -151,3 +151,6 @@ export const CreateTeam = () => {
     </main>
   )
 }
+
+
+export default CreateTeam;

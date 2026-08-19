@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { useLearningResourceUpload } from '../lib/unifiedStorage'
 
-export const NewResource = () => {
+const NewResource = () => {
   const { user, role } = useAuth()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
@@ -285,3 +285,6 @@ export const NewResource = () => {
     </main>
   )
 }
+
+
+export default NewResource;

@@ -15,7 +15,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { unifiedStorage, databaseBackup } from '../lib/unifiedStorage'
 import { TableSkeleton } from '../components/SkeletonLoaders'
 
-export const StorageDashboard = () => {
+const StorageDashboard = () => {
   const [usage, setUsage] = useState(null)
   const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(true)

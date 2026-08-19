@@ -88,7 +88,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } }
 }
 
-export const Scheduler = () => {
+const Scheduler = () => {
   const { role, user, profile } = useAuth()
   const isLead = ['chairperson', 'vice_chairperson'].includes(role)
   
@@ -1159,3 +1159,6 @@ export const Scheduler = () => {
     </main>
   )
 }
+
+
+export default Scheduler;

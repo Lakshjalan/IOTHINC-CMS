@@ -42,7 +42,7 @@ const modalContentVariants = {
   exit: { opacity: 0, scale: 0.97, y: 5, transition: { duration: 0.15 } }
 }
 
-export const Meetings = () => {
+const Meetings = () => {
   const { user, role } = useAuth()
   const canSchedule = ['chairperson', 'vice_chairperson'].includes(role)
   
@@ -717,3 +717,6 @@ const EditLogForm = ({ meeting, onCancel, onSave }) => {
     </motion.form>
   )
 }
+
+
+export default Meetings;

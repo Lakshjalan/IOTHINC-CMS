@@ -142,7 +142,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
   )
 }
 
-export const EventTeamDetail = () => {
+const EventTeamDetail = () => {
   const { eventId, teamId } = useParams()
   const { user, role } = useAuth()
   const navigate = useNavigate()
@@ -252,3 +252,6 @@ export const EventTeamDetail = () => {
     </main>
   )
 }
+
+
+export default EventTeamDetail;

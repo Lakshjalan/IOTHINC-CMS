@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { ListSkeleton } from '../components/SkeletonLoaders'
 
-export const Leadership = () => {
+const Leadership = () => {
   const [leaders, setLeaders] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -121,3 +121,6 @@ export const Leadership = () => {
     </main>
   )
 }
+
+
+export default Leadership;

@@ -45,7 +45,7 @@ const bentoItemVariants = {
   }
 }
 
-export const Home = () => {
+const Home = () => {
   const { isDarkMode, toggleTheme } = useTheme()
 
   // Bento layout definitions
@@ -454,3 +454,6 @@ export const Home = () => {
     </div>
   )
 }
+
+
+export default Home;

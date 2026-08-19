@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useCompetitionPosterUpload } from '../lib/unifiedStorage'
 
-export const CompetitionHost = () => {
+const CompetitionHost = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const uploadPoster = useCompetitionPosterUpload()
@@ -293,3 +293,6 @@ export const CompetitionHost = () => {
     </main>
   )
 }
+
+
+export default CompetitionHost;

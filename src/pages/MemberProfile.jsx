@@ -6,7 +6,7 @@ import { getOptimizedImageUrl } from '../utils/imageOptimizer'
 import { useAvatarUpload } from '../lib/unifiedStorage'
 import { DetailPageSkeleton } from '../components/SkeletonLoaders'
 
-export const MemberProfile = () => {
+const MemberProfile = () => {
   const { id } = useParams()
   const { user: currentUser, role: currentRole } = useAuth()
   
@@ -466,3 +466,5 @@ export const MemberProfile = () => {
     </main>
   )
 }
+
+export default MemberProfile;

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react'
 
 const EMPTY_FORM = { title: '', content: '', published: true }
 
-export const AdminBlogs = () => {
+const AdminBlogs = () => {
   const { user } = useAuth()
   const { blogs, loading, createBlog, updateBlog, deleteBlog } = useBlogs()
   const uploadBlogCover = useBlogCoverUpload()
@@ -206,3 +206,6 @@ export const AdminBlogs = () => {
     </main>
   )
 }
+
+
+export default AdminBlogs;

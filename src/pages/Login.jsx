@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 import { IothincLogo } from '../assets/IothincLogo'
 
-export const Login = () => {
+const Login = () => {
   const navigate = useNavigate()
   const { signIn, signUp, signOut, user, profile, refreshProfile } = useAuth()
   const [isApproved, setIsApproved] = useState(false)
@@ -340,3 +340,6 @@ export const Login = () => {
     </main>
   )
 }
+
+
+export default Login;

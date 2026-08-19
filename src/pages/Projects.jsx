@@ -8,7 +8,7 @@ import { GridSkeleton } from '../components/SkeletonLoaders'
 
 const EMPTY_FORM = { title: '', description: '', category: 'Software Development', status: 'planned', milestone: '', deadline: '' }
 
-export const Projects = () => {
+const Projects = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { role } = useAuth()
@@ -482,3 +482,6 @@ export const Projects = () => {
     </main>
   )
 }
+
+
+export default Projects;

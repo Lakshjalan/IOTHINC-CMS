@@ -6,7 +6,7 @@ import { useContributions } from '../hooks/useContributions'
 import { sanitizeUUID } from '../utils/sanitize'
 import { ProgressRingSkeleton, ListSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
-export const ProgressTrackerMember = () => {
+const ProgressTrackerMember = () => {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const memberId = sanitizeUUID(searchParams.get('member_id'))
@@ -208,3 +208,5 @@ export const ProgressTrackerMember = () => {
     </main>
   )
 }
+
+export default ProgressTrackerMember;

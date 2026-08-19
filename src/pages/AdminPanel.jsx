@@ -6,7 +6,7 @@ import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
 import { TableSkeleton } from '../components/SkeletonLoaders'
 
-export const AdminPanel = () => {
+const AdminPanel = () => {
   const { user, role } = useAuth()
   const { sendNotification } = useNotifications()
   const { contributions, refetch: refetchContribs, toggleFlagContribution, deleteContribution } = useContributions()
@@ -155,3 +155,6 @@ export const AdminPanel = () => {
     </main>
   )
 }
+
+
+export default AdminPanel;

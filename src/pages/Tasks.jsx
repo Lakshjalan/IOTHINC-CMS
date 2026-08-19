@@ -5,7 +5,7 @@ import { useNotifications } from '../hooks/useNotifications'
 import { supabase } from '../supabaseClient'
 import { ListSkeleton } from '../components/SkeletonLoaders'
 
-export const Tasks = () => {
+const Tasks = () => {
   const { role, user } = useAuth()
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
     const isSystemAdmin = ['chairperson', 'vice_chairperson'].includes(role)
@@ -169,3 +169,6 @@ export const Tasks = () => {
     </main>
   )
 }
+
+
+export default Tasks;

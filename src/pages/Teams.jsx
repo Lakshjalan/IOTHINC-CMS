@@ -293,7 +293,7 @@ const TeamCard = ({ team, canManage, isAdmin, user, myRequest, pendingCount, onR
 }
 
 // ── Main Teams Page ──────────────────────────────────────────
-export const Teams = () => {
+const Teams = () => {
   const { role, user } = useAuth()
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
   const canManage = ['chairperson', 'vice_chairperson'].includes(role)
@@ -533,3 +533,5 @@ export const Teams = () => {
     </main>
   )
 }
+
+export default Teams;

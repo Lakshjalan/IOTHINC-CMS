@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useContributions } from '../hooks/useContributions'
 import { supabase } from '../supabaseClient'
 
-export const NewContribution = () => {
+const NewContribution = () => {
   const { user, role } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -183,3 +183,6 @@ export const NewContribution = () => {
     </main>
   )
 }
+
+
+export default NewContribution;

@@ -8,7 +8,7 @@ import { TableSkeleton } from '../components/SkeletonLoaders'
 const ROLE_RANK = { chairperson: 4, vice_chairperson: 3, department_lead: 2, member: 1 }
 const ALL_ROLES = ['member', 'department_lead', 'vice_chairperson', 'chairperson']
 
-export const Members = () => {
+const Members = () => {
   const { role, user } = useAuth()
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
   const myRank = ROLE_RANK[role] || 0
@@ -557,3 +557,5 @@ export const Members = () => {
     </main>
   )
 }
+
+export default Members;

@@ -22,7 +22,7 @@ const listItemVariants = {
   })
 }
 
-export const Dashboard = () => {
+const Dashboard = () => {
   const { profile, role } = useAuth()
   const isAdmin = (role === 'chairperson' || role === 'vice_chairperson')
   const location = useLocation()
@@ -425,3 +425,5 @@ export const Dashboard = () => {
     </>
   )
 }
+
+export default Dashboard;

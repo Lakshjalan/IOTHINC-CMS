@@ -13,7 +13,7 @@ const statusColors = {
   blocked: 'bg-error/20 text-error',
 }
 
-export const ProjectDetail = () => {
+const ProjectDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { role, user } = useAuth()
@@ -634,3 +634,5 @@ export const ProjectDetail = () => {
     </main>
   )
 }
+
+export default ProjectDetail;

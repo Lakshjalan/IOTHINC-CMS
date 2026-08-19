@@ -618,7 +618,7 @@ const KanbanBoard = ({ eventTeams, canManage, user, onUpdateStatus, onAssignTask
 }
 
 // ── Main EventDetail Component ──────────────────────────────
-export const EventDetail = () => {
+const EventDetail = () => {
   const { id } = useParams()
   const { user, role } = useAuth()
   const canManage = ['chairperson', 'vice_chairperson'].includes(role)
@@ -915,3 +915,6 @@ export const EventDetail = () => {
   )
 }
 
+
+
+export default EventDetail;
