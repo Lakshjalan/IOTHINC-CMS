@@ -23,7 +23,7 @@ const CompetitionHost = () => {
   const [posterError, setPosterError] = useState(null)
 
   useEffect(() => {
-    document.title = "Host Competitions | IOTHINC"
+    document.title = "Host Competition | IOTHINC"
   }, [])
 
   const handlePosterChange = (e) => {
@@ -123,7 +123,7 @@ const CompetitionHost = () => {
       <div className="bg-surface-container rounded-xl border border-outline-variant p-6 md:p-8 shadow-sm">
         <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">Host New Competition</h2>
         <p className="text-xs text-on-surface-variant mb-6 leading-relaxed">
-          Fill out the parameters below to publish a new competitive event.
+          Fill out the parameters below to publish a new competition.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
