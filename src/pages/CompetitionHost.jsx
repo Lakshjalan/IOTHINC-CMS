@@ -23,7 +23,7 @@ const CompetitionHost = () => {
   const [posterError, setPosterError] = useState(null)
 
   useEffect(() => {
-    document.title = "Host Competition | IOTHINC"
+    document.title = "Host Competitions | IOTHINC"
   }, [])
 
   const handlePosterChange = (e) => {
