@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from '../hooks/useAuth'
-import { 
-  useScheduler, 
-  maskToBigInt, 
-  isSlotBusyBitwise, 
-  filterFreeMembersAtSlot 
+import {
+  useScheduler,
+  maskToBigInt,
+  isSlotBusyBitwise,
+  filterFreeMembersAtSlot
 } from '../hooks/useScheduler'
 import { useTeams } from '../hooks/useTeams'
 import { useNotifications } from '../hooks/useNotifications'
@@ -29,35 +29,35 @@ import { Bell } from '@phosphor-icons/react/dist/icons/Bell'
 const VIT_TIMETABLE = {
   header: {
     theoryStart: ['08:00', '08:55', '09:50', '10:45', '11:40', '12:35', '14:00', '14:55', '15:50', '16:45', '17:40', '18:35'],
-    theoryEnd:   ['08:50', '09:45', '10:40', '11:35', '12:30', '13:25', '14:50', '15:45', '16:40', '17:35', '18:30', '19:25'],
-    labStart:    ['08:00', '08:50', '09:50', '10:40', '11:40', '12:30', '14:00', '14:50', '15:50', '16:40', '17:40', '18:30'],
-    labEnd:      ['08:50', '09:40', '10:40', '11:30', '12:30', '13:20', '14:50', '15:40', '16:40', '17:30', '18:30', '19:20']
+    theoryEnd: ['08:50', '09:45', '10:40', '11:35', '12:30', '13:25', '14:50', '15:45', '16:40', '17:35', '18:30', '19:25'],
+    labStart: ['08:00', '08:50', '09:50', '10:40', '11:40', '12:30', '14:00', '14:50', '15:50', '16:40', '17:40', '18:30'],
+    labEnd: ['08:50', '09:40', '10:40', '11:30', '12:30', '13:20', '14:50', '15:40', '16:40', '17:30', '18:30', '19:20']
   },
   days: [
     {
       name: 'MON',
       theory: ['A1', 'F1', 'D1', 'TB1', 'TG1', 'S11', 'A2', 'F2', 'D2', 'TB2', 'TG2', 'S3'],
-      lab:    ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L31', 'L32', 'L33', 'L34', 'L35', 'L36']
+      lab: ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L31', 'L32', 'L33', 'L34', 'L35', 'L36']
     },
     {
       name: 'TUE',
       theory: ['B1', 'G1', 'E1', 'TC1', 'TAA1', '-', 'B2', 'G2', 'E2', 'TC2', 'TAA2', 'S1'],
-      lab:    ['L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L37', 'L38', 'L39', 'L40', 'L41', 'L42']
+      lab: ['L7', 'L8', 'L9', 'L10', 'L11', 'L12', 'L37', 'L38', 'L39', 'L40', 'L41', 'L42']
     },
     {
       name: 'WED',
       theory: ['C1', 'A1', 'F1', 'TD1', 'TBB1', '-', 'C2', 'A2', 'F2', 'TD2', 'TBB2', 'S4'],
-      lab:    ['L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L43', 'L44', 'L45', 'L46', 'L47', 'L48']
+      lab: ['L13', 'L14', 'L15', 'L16', 'L17', 'L18', 'L43', 'L44', 'L45', 'L46', 'L47', 'L48']
     },
     {
       name: 'THU',
       theory: ['D1', 'B1', 'G1', 'TE1', 'TCC1', '-', 'D2', 'B2', 'G2', 'TE2', 'TCC2', 'S2'],
-      lab:    ['L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L49', 'L50', 'L51', 'L52', 'L53', 'L54']
+      lab: ['L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L49', 'L50', 'L51', 'L52', 'L53', 'L54']
     },
     {
       name: 'FRI',
       theory: ['E1', 'C1', 'TA1', 'TF1', 'TDD1', 'S15', 'E2', 'C2', 'TA2', 'TF2', 'TDD2', '-'],
-      lab:    ['L25', 'L26', 'L27', 'L28', 'L29', 'L30', 'L55', 'L56', 'L57', 'L58', 'L59', 'L60']
+      lab: ['L25', 'L26', 'L27', 'L28', 'L29', 'L30', 'L55', 'L56', 'L57', 'L58', 'L59', 'L60']
     }
   ]
 }
@@ -91,20 +91,20 @@ const itemVariants = {
 const Scheduler = () => {
   const { role, user, profile } = useAuth()
   const isLead = ['chairperson', 'vice_chairperson'].includes(role)
-  
-  const { 
-    mySchedule, 
-    saveMySchedule, 
-    fetchTeamSchedules, 
-    fetchAllSchedules 
+
+  const {
+    mySchedule,
+    saveMySchedule,
+    fetchTeamSchedules,
+    fetchAllSchedules
   } = useScheduler()
-  
+
   const { teams } = useTeams()
   const { sendNotification } = useNotifications()
 
   // Tab State: 'my-timetable' | 'team-analyzer' | 'search-free'
   const [activeTab, setActiveTab] = useState('my-timetable')
-  
+
   // My Timetable Editing & View Mode State
   const [selectedCells, setSelectedCells] = useState(new Set())
   const [isEditing, setIsEditing] = useState(false)
@@ -315,13 +315,13 @@ const Scheduler = () => {
   // Team Stats calculation via BigInt
   const getCellStats = (dayIdx, slotIdx) => {
     if (teamMembers.length === 0) return { freeCount: 0, busyCount: 0, freeList: [], busyList: [], ratio: 1 }
-    
+
     const bitIndex = getCellBitIndex(dayIdx, slotIdx)
     const targetBit = 1n << BigInt(bitIndex)
-    
+
     const freeList = []
     const busyList = []
-    
+
     for (let i = 0; i < teamMembers.length; i++) {
       const m = teamMembers[i]
       if ((m.maskBigInt & targetBit) !== 0n) {
@@ -330,7 +330,7 @@ const Scheduler = () => {
         freeList.push(m)
       }
     }
-    
+
     return {
       freeCount: freeList.length,
       busyCount: busyList.length,
@@ -449,9 +449,9 @@ const Scheduler = () => {
               <React.Fragment key={dayObj.name}>
                 {/* THEORY Row for Day */}
                 <tr className="border-b border-outline-variant/20 hover:bg-surface-container-low transition-colors">
-                  <td 
-                    rowSpan={2} 
-                  className="px-2.5 py-1 border-r border-b border-outline-variant/30 font-bold text-center text-xs bg-surface-container-highest text-on-surface uppercase tracking-wide w-14"
+                  <td
+                    rowSpan={2}
+                    className="px-2.5 py-1 border-r border-b border-outline-variant/30 font-bold text-center text-xs bg-surface-container-highest text-on-surface uppercase tracking-wide w-14"
                   >
                     {dayObj.name}
                   </td>
@@ -464,8 +464,8 @@ const Scheduler = () => {
                   {dayObj.theory.slice(0, 6).map((code, slotOffset) => {
                     const slotIdx = slotOffset
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-theory`)
-                    let cellBg = isSelected 
-                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                    let cellBg = isSelected
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40'
                       : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
@@ -473,7 +473,7 @@ const Scheduler = () => {
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'theory')}
-                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                          className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Theory Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -488,8 +488,8 @@ const Scheduler = () => {
                   {dayObj.theory.slice(6).map((code, slotOffset) => {
                     const slotIdx = slotOffset + 6
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-theory`)
-                    let cellBg = isSelected 
-                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                    let cellBg = isSelected
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40'
                       : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
@@ -497,7 +497,7 @@ const Scheduler = () => {
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'theory')}
-                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                          className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Theory Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -518,8 +518,8 @@ const Scheduler = () => {
                   {dayObj.lab.slice(0, 6).map((code, slotOffset) => {
                     const slotIdx = slotOffset
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-lab`)
-                    let cellBg = isSelected 
-                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                    let cellBg = isSelected
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40'
                       : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
@@ -527,7 +527,7 @@ const Scheduler = () => {
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'lab')}
-                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                          className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Lab Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -540,8 +540,8 @@ const Scheduler = () => {
                   {dayObj.lab.slice(6).map((code, slotOffset) => {
                     const slotIdx = slotOffset + 6
                     const isSelected = selectedCells.has(`${dayIdx}-${slotIdx}-lab`)
-                    let cellBg = isSelected 
-                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40' 
+                    let cellBg = isSelected
+                      ? 'bg-primary/20 text-primary border-primary/30 font-bold shadow-inner ring-1 ring-inset ring-primary/40'
                       : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high border-outline-variant/20'
 
                     return (
@@ -549,7 +549,7 @@ const Scheduler = () => {
                         <button
                           disabled={!isEditing}
                           onClick={() => toggleCell(dayIdx, slotIdx, 'lab')}
-                    className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
+                          className={`w-full h-full py-1 px-1 flex flex-col items-center justify-center font-mono text-[10px] transition-all ${cellBg} ${!isEditing ? 'cursor-default' : 'cursor-pointer'}`}
                           title={`${dayObj.name} Lab Slot ${slotIdx + 1}: ${code}`}
                         >
                           <span className="leading-tight">{code}</span>
@@ -683,40 +683,35 @@ const Scheduler = () => {
 
       {/* Navigation Tabs */}
       <div className="flex gap-2 border-b border-outline-variant mb-4 pb-px overflow-x-auto no-scrollbar">
-        <button 
+        <button
           onClick={() => setActiveTab('my-timetable')}
-          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'my-timetable' 
-              ? 'border-accent text-accent' 
+          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'my-timetable'
+              ? 'border-accent text-accent'
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
+            }`}
         >
           <Calendar size={16} /> My Timetable
         </button>
-        
-        <button 
+
+        <button
           onClick={() => isLead && setActiveTab('team-analyzer')}
-          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 relative ${
-            !isLead ? 'opacity-40 cursor-not-allowed' : ''
-          } ${
-            activeTab === 'team-analyzer' 
-              ? 'border-accent text-accent' 
+          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 relative ${!isLead ? 'opacity-40 cursor-not-allowed' : ''
+            } ${activeTab === 'team-analyzer'
+              ? 'border-accent text-accent'
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
+            }`}
           title={!isLead ? 'Restricted to Chairperson, VC & Leads' : ''}
         >
           <Users size={16} /> Team Analyzer
         </button>
 
-        <button 
+        <button
           onClick={() => isLead && setActiveTab('search-free')}
-          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 relative ${
-            !isLead ? 'opacity-40 cursor-not-allowed' : ''
-          } ${
-            activeTab === 'search-free' 
-              ? 'border-accent text-accent' 
+          className={`px-5 py-3 font-mono text-xs uppercase font-bold border-b-2 transition-all flex items-center gap-2 relative ${!isLead ? 'opacity-40 cursor-not-allowed' : ''
+            } ${activeTab === 'search-free'
+              ? 'border-accent text-accent'
               : 'border-transparent text-on-surface-variant hover:text-on-surface'
-          }`}
+            }`}
           title={!isLead ? 'Restricted to Chairperson, VC & Leads' : ''}
         >
           <MagnifyingGlass size={16} /> Find Free Members
@@ -749,14 +744,14 @@ const Scheduler = () => {
                       </span>
                     )}
                   </div>
-                  
+
                   <p className="text-xs text-on-surface-variant mt-1">
-                    {isEditing 
-                      ? 'Click your Theory or Lab cells to toggle commitments, then click Save.' 
+                    {isEditing
+                      ? 'Click your Theory or Lab cells to toggle commitments, then click Save.'
                       : `Your timetable is saved. Click "Edit Timetable" to unlock and make changes.`}
                   </p>
                 </div>
-                
+
                 <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
                   {/* View Mode Actions */}
                   {!isEditing ? (
@@ -775,15 +770,14 @@ const Scheduler = () => {
                       >
                         <Trash size={16} /> Reset
                       </button>
-                      
+
                       <button
                         onClick={handleSaveSchedule}
                         disabled={saving || !isModified}
-                        className={`flex items-center justify-center gap-2 font-mono uppercase tracking-wider text-xs font-bold px-5 py-2.5 rounded-xl transition-all ${
-                          isModified 
-                            ? 'bg-accent text-on-primary hover:brightness-110 active:scale-[0.98] cursor-pointer' 
+                        className={`flex items-center justify-center gap-2 font-mono uppercase tracking-wider text-xs font-bold px-5 py-2.5 rounded-xl transition-all ${isModified
+                            ? 'bg-accent text-on-primary hover:brightness-110 active:scale-[0.98] cursor-pointer'
                             : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/60 cursor-not-allowed'
-                        }`}
+                          }`}
                       >
                         {saving ? (
                           <span className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
@@ -809,11 +803,11 @@ const Scheduler = () => {
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-on-surface-variant justify-center sm:justify-start pt-2 border-t border-outline-variant/40">
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded bg-[#fef9c3] border border-amber-300 shadow-sm" />
-                  <span>Free slot</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">Selected Class Slot</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded bg-[#d9f99d] border border-[#84cc16] shadow-sm" />
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">Selected Class Slot (Green)</span>
+                  <span className="w-4 h-4 rounded bg-[#1e1d1b] border border-[#3f3d39] shadow-sm" />
+                  <span>Free slot</span>
                 </div>
               </div>
             </motion.div>
@@ -838,7 +832,7 @@ const Scheduler = () => {
                     Simplified 1-row-per-day grid (6 morning slots, Lunch Break, 6 evening slots). Click any cell to inspect members.
                   </p>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-mono text-on-surface-variant uppercase tracking-wider shrink-0">Team:</span>
                   <select
@@ -877,7 +871,7 @@ const Scheduler = () => {
                             const slotIdx = selectedAnalysisCell.slotIndex
                             const slotTime = SLOT_TIME_LABELS[slotIdx]
                             const { freeList, busyList } = getCellStats(selectedAnalysisCell.dayIndex, slotIdx)
-                            
+
                             return (
                               <>
                                 <div className="flex items-center gap-2 text-accent font-mono text-xs uppercase tracking-wider mb-1 font-bold">
@@ -903,8 +897,8 @@ const Scheduler = () => {
                                       <div className="space-y-2">
                                         {freeList.map(m => (
                                           <div key={m.id} className="flex items-center gap-2.5 bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/30">
-                                            <img 
-                                              src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`} 
+                                            <img
+                                              src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`}
                                               className="w-6 h-6 rounded-full object-cover border border-outline-variant/60"
                                               alt=""
                                             />
@@ -930,8 +924,8 @@ const Scheduler = () => {
                                       <div className="space-y-2">
                                         {busyList.map(m => (
                                           <div key={m.id} className="flex items-center gap-2.5 bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/30 opacity-75">
-                                            <img 
-                                              src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`} 
+                                            <img
+                                              src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`}
                                               className="w-6 h-6 rounded-full object-cover border border-outline-variant/60"
                                               alt=""
                                             />
@@ -1045,7 +1039,7 @@ const Scheduler = () => {
 
                 {/* SATURDAY DYNAMIC TIMETABLE CONTROLS */}
                 {searchDay === 5 && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     className="pt-4 border-t border-outline-variant/40 space-y-4"
@@ -1064,22 +1058,20 @@ const Scheduler = () => {
                         <button
                           type="button"
                           onClick={() => setSatMode('holiday')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${
-                            satMode === 'holiday'
+                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${satMode === 'holiday'
                               ? 'bg-emerald-500 text-white shadow-sm'
                               : 'bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                          }`}
+                            }`}
                         >
                           <Sun size={14} /> Holiday
                         </button>
                         <button
                           type="button"
                           onClick={() => setSatMode('working')}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${
-                            satMode === 'working'
+                          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${satMode === 'working'
                               ? 'bg-amber-500 text-white shadow-sm'
                               : 'bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-                          }`}
+                            }`}
                         >
                           <Briefcase size={14} /> Working Day
                         </button>
@@ -1125,13 +1117,13 @@ const Scheduler = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {freeMembersAtSearch.map(m => (
-                      <div 
-                        key={m.id} 
+                      <div
+                        key={m.id}
                         className="flex items-center justify-between bg-surface-container-low border border-outline-variant/50 p-4 rounded-xl hover:border-accent/30 transition-all group shadow-xs"
                       >
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`} 
+                          <img
+                            src={m.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(m.full_name)}`}
                             className="w-10 h-10 rounded-full object-cover border border-outline-variant/60"
                             alt=""
                           />

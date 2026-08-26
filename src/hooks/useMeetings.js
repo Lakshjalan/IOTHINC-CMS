@@ -85,6 +85,9 @@ export const useMeetings = () => {
         platform: sanitizeEnum(meetingData.platform, ['zoom', 'google_meet', 'teams', 'other', 'in_person']) || 'other',
         scheduled_start: sanitizeDate(meetingData.scheduled_start),
         scheduled_end: sanitizeDate(meetingData.scheduled_end),
+        target_type: sanitizeEnum(meetingData.target_type, ['all', 'department', 'team']) || 'all',
+        target_departments: meetingData.target_departments || [],
+        target_team_ids: meetingData.target_team_ids || [],
       }
 
       const { data, error: err } = await supabase

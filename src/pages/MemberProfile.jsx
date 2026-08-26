@@ -9,7 +9,7 @@ import { DetailPageSkeleton } from '../components/SkeletonLoaders'
 const MemberProfile = () => {
   const { id } = useParams()
   const { user: currentUser, role: currentRole } = useAuth()
-  
+
   const [member, setMember] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('About')
@@ -18,13 +18,21 @@ const MemberProfile = () => {
   const [contributions, setContributions] = useState([])
   const [tasks, setTasks] = useState([])
   const [registrations, setRegistrations] = useState([])
-  
+  const [meetings, setMeetings] = useState([])
+  const [meetingStats, setMeetingStats] = useState({
+    totalConducted: 0,
+    attended: 0,
+    departmentConducted: 0,
+    teamConducted: 0,
+  })
+
   // Edit Mode state
   const [editMode, setEditMode] = useState(false)
   const [editForm, setEditForm] = useState({
     full_name: '',
     department: '',
     year: '',
+    residence_type: '',
     bio: '',
     skills: '',
     github_url: '',
@@ -53,6 +61,7 @@ const MemberProfile = () => {
         full_name: prof.full_name,
         department: prof.department || '',
         year: prof.year || '',
+        residence_type: prof.residence_type || '',
         bio: prof.bio || '',
         skills: prof.skills ? prof.skills.join(', ') : '',
         github_url: prof.github_url || '',
@@ -117,12 +126,13 @@ const MemberProfile = () => {
           full_name: editForm.full_name,
           department: editForm.department,
           year: editForm.year,
+          residence_type: editForm.residence_type,
           bio: editForm.bio,
           skills: skillsArray,
           github_url: editForm.github_url,
           linkedin_url: editForm.linkedin_url,
           ...((currentRole === 'chairperson' || currentRole === 'vice_chairperson') && { role: editForm.role }),
-          ...((currentRole === 'chairperson') && { member_tag: editForm.member_tag })
+          ...((currentRole === 'chairperson' || currentRole === 'vice_chairperson') && { member_tag: editForm.member_tag })
         })
         .eq('id', id)
 
@@ -196,7 +206,7 @@ const MemberProfile = () => {
           </div>
           
           <p className="text-on-surface-variant font-medium mt-2">
-            {member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}
+            {member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}{member?.residence_type ? ` • ${member.residence_type === 'hosteller' ? 'Hosteller' : 'Day Scholar'}` : ''}
           </p>
 
           <div className="flex gap-4 justify-center md:justify-start mt-4">
@@ -262,7 +272,7 @@ const MemberProfile = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Academic Year</label>
                   <input 
@@ -271,6 +281,18 @@ const MemberProfile = () => {
                     onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
                     className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Residence Type</label>
+                  <select
+                    value={editForm.residence_type}
+                    onChange={(e) => setEditForm({ ...editForm, residence_type: e.target.value })}
+                    className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
+                  >
+                    <option value="">Select...</option>
+                    <option value="hosteller">Hosteller</option>
+                    <option value="day_scholar">Day Scholar</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Skills (comma separated)</label>

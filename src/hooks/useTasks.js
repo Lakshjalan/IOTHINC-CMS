@@ -89,6 +89,10 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         .from('tasks')
         .select(`
           *,
+          batch_id,
+          completion_request_status,
+          completion_reg_no,
+          completion_desc,
           assignee:profiles!tasks_assigned_to_fkey(full_name, avatar_url),
           assigner:profiles!tasks_assigned_by_fkey(full_name),
           project:projects(title),
@@ -187,6 +191,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         event_id: taskData.event_id || null,
         due_date: sanitizeDate(taskData.due_date),
         progress: sanitizeNumber(taskData.progress, 0, 100) ?? 0,
+        batch_id: taskData.batch_id || null,
       }
       const { data, error: err } = await supabase
         .from('tasks')

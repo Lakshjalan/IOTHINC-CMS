@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ListSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 import { useMeetings } from '../hooks/useMeetings'
 import { useNotifications } from '../hooks/useNotifications'
+import { supabase } from '../supabaseClient'
 import { motion, AnimatePresence } from 'motion/react'
 import { Calendar } from '@phosphor-icons/react/dist/icons/Calendar'
 import { VideoCamera } from '@phosphor-icons/react/dist/icons/VideoCamera'
@@ -495,6 +496,25 @@ const ScheduleModal = ({ onClose, onSave }) => {
   const [platform, setPlatform] = useState('other')
   const [submitting, setSubmitting] = useState(false)
 
+  // Target type: 'all' | 'department' | 'team'
+  const [targetType, setTargetType] = useState('all')
+  const [targetDepartments, setTargetDepartments] = useState([])
+  const [targetTeamIds, setTargetTeamIds] = useState([])
+
+  // Fetch departments and teams
+  const [departments, setDepartments] = useState([])
+  const [teams, setTeams] = useState([])
+
+  useEffect(() => {
+    // Fetch departments from profiles
+    supabase.from('profiles').select('department').then(r => {
+      const depts = [...new Set((r.data || []).map(p => p.department).filter(Boolean))]
+      setDepartments(depts)
+    })
+    // Fetch teams
+    supabase.from('teams').select('id,name,department').then(r => setTeams(r.data || []))
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -506,7 +526,10 @@ const ScheduleModal = ({ onClose, onSave }) => {
         scheduled_end: new Date(end).toISOString(),
         meeting_link: link,
         platform,
-        status: 'scheduled'
+        status: 'scheduled',
+        target_type: targetType,
+        target_departments: targetType === 'department' ? targetDepartments : [],
+        target_team_ids: targetType === 'team' ? targetTeamIds : [],
       })
     } finally {
       setSubmitting(false)
@@ -602,15 +625,73 @@ const ScheduleModal = ({ onClose, onSave }) => {
               <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">
                 {isUrlRequired ? 'Meeting Link' : 'Location Details / Link'}
               </label>
-              <input 
-                type={isUrlRequired ? 'url' : 'text'} 
-                value={link} 
+              <input
+                type={isUrlRequired ? 'url' : 'text'}
+                value={link}
                 onChange={e => setLink(e.target.value)}
                 className="w-full bg-surface-container-low text-on-surface p-3 rounded-xl border border-outline-variant text-sm focus:ring-accent focus:outline-none focus:ring-2"
-                required 
+                required
                 placeholder={isUrlRequired ? 'https://meet.google.com/...' : 'e.g. Lab 102 or custom text'}
               />
             </div>
+          </div>
+
+          {/* Target Audience Selection */}
+          <div className="space-y-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/50">
+            <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-2">Target Audience</label>
+            <div className="flex gap-4 flex-wrap">
+              {['all', 'department', 'team'].map(type => (
+                <label key={type} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="targetType"
+                    value={type}
+                    checked={targetType === type}
+                    onChange={e => { setTargetType(e.target.value); setTargetDepartments([]); setTargetTeamIds([]) }}
+                    className="w-4 h-4 text-accent border-outline-variant focus:ring-accent"
+                  />
+                  <span className="text-sm font-medium text-on-surface capitalize">{type}</span>
+                </label>
+              ))}
+            </div>
+
+            {targetType === 'department' && departments.length > 0 && (
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">Select Departments</label>
+                <div className="flex flex-wrap gap-2">
+                  {departments.map(dept => (
+                    <label key={dept} className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-high border border-outline-variant rounded-lg cursor-pointer hover:border-accent/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={targetDepartments.includes(dept)}
+                        onChange={e => setTargetDepartments(prev => e.target.checked ? [...prev, dept] : prev.filter(d => d !== dept))}
+                        className="w-4 h-4 text-accent border-outline-variant rounded focus:ring-accent"
+                      />
+                      <span className="text-sm text-on-surface">{dept}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {targetType === 'team' && teams.length > 0 && (
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-on-surface-variant mb-1">Select Teams</label>
+                <div className="flex flex-wrap gap-2">
+                  {teams.map(team => (
+                    <label key={team.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-high border border-outline-variant rounded-lg cursor-pointer hover:border-accent/50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={targetTeamIds.includes(team.id)}
+                        onChange={e => setTargetTeamIds(prev => e.target.checked ? [...prev, team.id] : prev.filter(id => id !== team.id))}
+                        className="w-4 h-4 text-accent border-outline-variant rounded focus:ring-accent"
+                      />
+                      <span className="text-sm text-on-surface">{team.name} {team.department ? `(${team.department})` : ''}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant/30 mt-6">
