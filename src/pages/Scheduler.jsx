@@ -239,13 +239,16 @@ const Scheduler = () => {
       try {
         const memberName = profile?.full_name || user?.email || 'A member'
         const memberDept = profile?.department ? ` (${profile.department})` : ''
-        await sendNotification({
-          title: 'Timetable Updated',
-          message: `${memberName}${memberDept} has updated their availability timetable schedule.`,
-          priority: 2,
-          type: 'announcement',
-          target_role: 'all'
-        })
+        const targetRoles = ['chairperson', 'vice_chairperson', 'department_lead']
+        for (const roleName of targetRoles) {
+          await sendNotification({
+            title: 'Timetable Updated',
+            message: `${memberName}${memberDept} has updated their availability timetable schedule.`,
+            priority: 2,
+            type: 'announcement',
+            target_role: roleName
+          })
+        }
       } catch (notifErr) {
         console.warn('Notification log error:', notifErr)
       }

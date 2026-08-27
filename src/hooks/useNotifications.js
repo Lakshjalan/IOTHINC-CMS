@@ -54,7 +54,7 @@ export const useNotifications = () => {
         message: sanitizeText(notifData.message, 2000),
         priority: sanitizeNumber(notifData.priority, 1, 5) ?? 3,
         type: sanitizeEnum(notifData.type, ['announcement', 'task', 'event', 'system', 'message']) || 'announcement',
-        target_role: sanitizeEnum(notifData.target_role, VALID_ROLES) || 'all',
+        target_role: notifData.target_role ? (sanitizeEnum(notifData.target_role, VALID_ROLES) || 'all') : (notifData.target_member_id ? null : 'all'),
         target_member_id: notifData.target_member_id || null,
       }
       const { data, error: err } = await supabase

@@ -4,6 +4,7 @@ import { useProgress } from '../hooks/useProgress'
 import { useAuth } from '../hooks/useAuth'
 import { useContributions } from '../hooks/useContributions'
 import { sanitizeUUID } from '../utils/sanitize'
+import { supabase } from '../supabaseClient'
 import { ProgressRingSkeleton, ListSkeleton, GridSkeleton } from '../components/SkeletonLoaders'
 
 const ProgressTrackerMember = () => {
@@ -12,16 +13,24 @@ const ProgressTrackerMember = () => {
   const memberId = sanitizeUUID(searchParams.get('member_id'))
   const effectiveMemberId = memberId || user?.id
 
-  const { tasks, loading, avgProgress, markTaskDone, updateProgress } = useProgress(effectiveMemberId)
+  const { tasks, loading, avgProgress, refetch, updateProgress } = useProgress(effectiveMemberId)
   const { contributions, loading: contrLoading, deleteContribution } = useContributions({ memberId: effectiveMemberId })
   const [editingTask, setEditingTask] = useState(null)
   const [progressInput, setProgressInput] = useState('')
+
+  // completion request modal
+  const [requestModal, setRequestModal] = useState(null) // task object or null
+  const [reqForm, setReqForm] = useState({ reg_no: '', desc: '' })
+  const [reqLoading, setReqLoading] = useState(false)
 
   useEffect(() => { document.title = "My Progress | IOTHINC" }, [])
 
   const handleUpdateProgress = async (taskId) => {
     const val = parseInt(progressInput)
-    if (isNaN(val) || val < 0 || val > 100) { alert('Enter a value between 0 and 100'); return }
+    if (isNaN(val) || val < 0 || val >= 100) { 
+      alert('Enter a progress value between 0 and 99. To set the task as completed, please submit a "Request Completion" request.')
+      return 
+    }
     try {
       await updateProgress(taskId, val)
       setEditingTask(null)
@@ -29,7 +38,23 @@ const ProgressTrackerMember = () => {
     } catch (err) { alert(err.message) }
   }
 
+  const handleRequestCompletion = async (e) => {
+    e.preventDefault()
+    setReqLoading(true)
+    const { error } = await supabase.from('tasks').update({
+      completion_request_status: 'pending',
+      completion_reg_no: reqForm.reg_no,
+      completion_desc: reqForm.desc,
+    }).eq('id', requestModal.id)
+    setReqLoading(false)
+    if (error) { alert(error.message); return }
+    setRequestModal(null)
+    setReqForm({ reg_no: '', desc: '' })
+    refetch()
+  }
+
   const statusColor = (s) => s === 'completed' ? 'bg-success/20 text-success' : s === 'in_progress' ? 'bg-primary/20 text-primary' : s === 'blocked' ? 'bg-error/20 text-error' : 'bg-surface-variant text-on-surface-variant'
+  const reqStatusColor = (s) => s === 'approved' ? 'text-success' : s === 'pending' ? 'text-amber-400' : s === 'rejected' ? 'text-error' : ''
 
   // SVG progress ring params
   const size = 140
@@ -91,6 +116,11 @@ const ProgressTrackerMember = () => {
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className={`font-bold text-on-surface ${t.status === 'completed' ? 'line-through text-on-surface-variant' : ''}`}>{t.title}</span>
                           <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${statusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
+                          {t.completion_request_status && t.completion_request_status !== 'none' && (
+                            <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded border ${reqStatusColor(t.completion_request_status)} border-current bg-current/10`}>
+                              {t.completion_request_status === 'pending' ? 'Request Pending' : t.completion_request_status === 'approved' ? 'Request Approved' : 'Request Rejected'}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-[10px] text-outline font-label-caps uppercase">
                           {t.due_date && <span>Due {new Date(t.due_date).toLocaleDateString()}</span>}
@@ -116,26 +146,27 @@ const ProgressTrackerMember = () => {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3 pt-2">
-                      {t.status !== 'completed' && (
-                        <>
-                          <button onClick={() => markTaskDone(t.id)} className="px-3 py-1.5 bg-success/20 text-success text-xs font-bold font-label-caps uppercase rounded hover:bg-success/30 transition-all flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">check_circle</span>Mark as Done
+                    {effectiveMemberId === user?.id && t.status !== 'completed' && (
+                      <div className="flex items-center gap-3 pt-2">
+                        {/* Request Completion button instead of Mark as Done */}
+                        {(t.completion_request_status === 'none' || !t.completion_request_status || t.completion_request_status === 'rejected') && (
+                          <button onClick={() => setRequestModal(t)} className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-bold font-label-caps uppercase rounded border border-primary/20 hover:bg-primary/20 transition-all flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">check_circle</span>Request Completion
                           </button>
-                          {editingTask === t.id ? (
-                            <div className="flex items-center gap-2">
-                              <input type="number" min="0" max="100" value={progressInput} onChange={e => setProgressInput(e.target.value)} className="w-20 bg-surface-container-low text-on-surface p-2 rounded border border-outline-variant text-xs text-center focus:ring-primary" placeholder="0-100" autoFocus/>
-                              <button onClick={() => handleUpdateProgress(t.id)} className="px-2 py-1.5 bg-primary/20 text-primary text-xs font-bold rounded hover:bg-primary/30">Save</button>
-                              <button onClick={() => { setEditingTask(null); setProgressInput('') }} className="px-2 py-1.5 text-on-surface-variant text-xs rounded hover:bg-surface-container-high">Cancel</button>
-                            </div>
-                          ) : (
-                            <button onClick={() => { setEditingTask(t.id); setProgressInput(String(t.progress ?? 0)) }} className="px-3 py-1.5 bg-primary/20 text-primary text-xs font-bold font-label-caps uppercase rounded hover:bg-primary/30 transition-all flex items-center gap-1">
-                              <span className="material-symbols-outlined text-sm">update</span>Update Progress
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
+                        )}
+                        {editingTask === t.id ? (
+                          <div className="flex items-center gap-2">
+                            <input type="number" min="0" max="99" value={progressInput} onChange={e => setProgressInput(e.target.value)} className="w-20 bg-surface-container-low text-on-surface p-2 rounded border border-outline-variant text-xs text-center focus:ring-primary" placeholder="0-99" autoFocus/>
+                            <button onClick={() => handleUpdateProgress(t.id)} className="px-2 py-1.5 bg-primary/20 text-primary text-xs font-bold rounded hover:bg-primary/30">Save</button>
+                            <button onClick={() => { setEditingTask(null); setProgressInput('') }} className="px-2 py-1.5 text-on-surface-variant text-xs rounded hover:bg-surface-container-high">Cancel</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setEditingTask(t.id); setProgressInput(String(t.progress ?? 0)) }} className="px-3 py-1.5 bg-primary/20 text-primary text-xs font-bold font-label-caps uppercase rounded hover:bg-primary/30 transition-all flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">update</span>Update Progress
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -205,6 +236,45 @@ const ProgressTrackerMember = () => {
           </div>
         )}
       </div>
+
+      {/* ── Completion Request Modal (member) ───────────────────────────────── */}
+      {requestModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setRequestModal(null)}>
+          <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-base text-on-surface mb-1">Request Task Completion</h3>
+            <p className="text-xs text-on-surface-variant mb-5">"{requestModal.title}"</p>
+            <form onSubmit={handleRequestCompletion} className="space-y-4">
+              <div>
+                <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Your Registration Number</label>
+                <input
+                  type="text"
+                  value={reqForm.reg_no}
+                  onChange={e => setReqForm({...reqForm, reg_no: e.target.value})}
+                  placeholder="e.g. 23BCE1234"
+                  className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">How did you complete this task?</label>
+                <textarea
+                  value={reqForm.desc}
+                  onChange={e => setReqForm({...reqForm, desc: e.target.value})}
+                  placeholder="Describe what you did to complete this task..."
+                  className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm h-28 resize-none"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setRequestModal(null)} className="px-4 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg font-label-caps text-xs uppercase">Cancel</button>
+                <button type="submit" disabled={reqLoading} className="px-5 py-2 bg-primary text-on-primary rounded-lg font-bold font-label-caps text-xs uppercase hover:brightness-110 disabled:opacity-60">
+                  {reqLoading ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
