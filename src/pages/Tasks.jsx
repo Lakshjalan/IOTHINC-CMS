@@ -22,6 +22,7 @@ const Tasks = () => {
   const [projects, setProjects] = useState([])
   const [events, setEvents] = useState([])
   const [departments, setDepartments] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // assign-to type: 'member' | 'department' | 'team'
   const [assignType, setAssignType] = useState('member')
@@ -70,6 +71,7 @@ const Tasks = () => {
 
   const handleAssign = async (e) => {
     e.preventDefault()
+    setIsSubmitting(true)
     try {
       const batchId = crypto.randomUUID()
       const baseTask = {
@@ -82,9 +84,7 @@ const Tasks = () => {
       }
 
       if (assignType === 'member') {
-        console.log("Assigning to member:", form.assigned_to)
         await assignTask({ ...baseTask, assigned_to: form.assigned_to })
-        console.log("assignTask completed successfully")
         await sendNotification({
           title: 'New Task Assigned',
           message: `You have been assigned a new task: "${form.title}"`,
@@ -93,15 +93,12 @@ const Tasks = () => {
         })
       } else if (assignType === 'department') {
         const deptMembers = members.filter(m => m.department === form.department)
-        console.log(`Assigning to department ${form.department}, found ${deptMembers.length} members`)
         if (deptMembers.length === 0) {
           alert(`No members found in department: ${form.department}`)
         }
         for (const m of deptMembers) {
-          console.log("Inserting task for member:", m.id)
           const { error } = await supabase.from('tasks').insert({
             ...baseTask, assigned_to: m.id, assigned_by: user?.id,
-            // Store department in admin_comment as a marker for department tasks
             admin_comment: `department:${form.department}`
           })
           if (error) throw error
@@ -116,31 +113,26 @@ const Tasks = () => {
       } else if (assignType === 'team') {
         const { data: teamMembers } = await supabase
           .from('team_members').select('member_id').eq('team_id', form.team_id)
-        console.log(`Assigning to team ${form.team_id}, found ${teamMembers?.length || 0} members`)
         if (!teamMembers || teamMembers.length === 0) {
-          alert(`No members found in team.`)
+            alert('No members found in selected team.')
+        } else {
+            for (const member of teamMembers) {
+                const { error } = await supabase.from('tasks').insert({
+                    ...baseTask, assigned_to: member.member_id, assigned_by: user?.id
+                })
+                if (error) throw error
+            }
+            refetch()
         }
-        for (const tm of teamMembers || []) {
-          console.log("Inserting task for team member:", tm.member_id)
-          const { error } = await supabase.from('tasks').insert({
-            ...baseTask, assigned_to: tm.member_id, assigned_by: user?.id
-          })
-          if (error) throw error
-          await sendNotification({
-            title: 'New Task Assigned',
-            message: `You have been assigned a new task: "${form.title}"`,
-            type: 'task',
-            target_member_id: tm.member_id,
-          })
-        }
-        refetch()
       }
-
+      alert('Task assigned successfully!')
       setShowAssign(false)
       setForm({ title: '', assigned_to: '', department: '', team_id: '', event_id: '', project_id: '', priority: 'medium', due_date: '' })
     } catch (err) { 
       console.error("Error in handleAssign:", err)
       alert("Error assigning task: " + err.message) 
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -346,10 +338,10 @@ const Tasks = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setShowAssign(false)} className="px-4 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg font-label-caps text-xs uppercase">Cancel</button>
-              <button type="submit" className="px-5 py-2 bg-primary text-on-primary rounded-lg font-bold font-label-caps text-xs uppercase hover:brightness-110">
-                Assign {assignType === 'department' ? 'to Department' : assignType === 'team' ? 'to Team' : ''}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowAssign(false)} disabled={isSubmitting} className="flex-1 py-2.5 border border-outline-variant text-on-surface-variant rounded-xl text-sm font-semibold hover:bg-surface-container-high transition-colors">Cancel</button>
+              <button type="submit" disabled={isSubmitting} className="flex-1 py-2.5 bg-primary text-on-primary font-bold rounded-xl text-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50">
+                {isSubmitting ? 'Assigning...' : 'Assign Task'}
               </button>
             </div>
           </form>
