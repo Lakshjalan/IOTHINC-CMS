@@ -11,9 +11,15 @@ const Tasks = () => {
   const isSystemAdmin = ['chairperson', 'vice_chairperson'].includes(role)
   const isDepartmentLead = role === 'department_lead'
 
-  const [viewTab, setViewTab] = useState(canManage ? 'all' : 'mine')
+  // Start viewTab as null — set to correct default once role resolves.
+  // This prevents the hook from fetching with the wrong viewFilter
+  // (e.g. 'mine' for admins) before the role is known.
+  const [viewTab, setViewTab] = useState(null)
   const [statusTab, setStatusTab] = useState('all')
-  const { tasks, loading, refetch, updateCache, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab, viewTab)
+
+  // Derive the effective viewFilter: use 'mine' as safe default while role is loading
+  const effectiveViewTab = viewTab ?? 'mine'
+  const { tasks, loading, refetch, updateCache, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab, effectiveViewTab)
   const { sendNotification } = useNotifications()
 
   const [showAssign, setShowAssign] = useState(false)
@@ -50,12 +56,14 @@ const Tasks = () => {
 
   useEffect(() => { document.title = 'Tasks | IOTHINC' }, [])
 
-  // Sync default viewTab when user role/canManage resolves
+  // Set the default viewTab once when role first resolves.
+  // Only fires when viewTab is null (initial load) — does NOT override
+  // the user's manual tab selection on subsequent role changes.
   useEffect(() => {
-    if (role) {
+    if (role && viewTab === null) {
       setViewTab(canManage ? 'all' : 'mine')
     }
-  }, [role, canManage])
+  }, [role, canManage, viewTab])
 
   useEffect(() => {
     if (!canManage) return
@@ -328,7 +336,7 @@ const Tasks = () => {
   // ─── Group batch tasks for admin "All Tasks" view ────────────────────────────
   // For admins, collapse batch tasks into a single representative card
   const displayTasks = useMemo(() => {
-    if (!canManage || viewTab !== 'all') return tasks || []
+    if (!canManage || effectiveViewTab !== 'all') return tasks || []
     const seen = new Set()
     return (tasks || []).map(t => {
       if (!t.batch_id) return t
@@ -349,7 +357,7 @@ const Tasks = () => {
 
       return { ...t, _isGroupCard: true, _groupLabel: groupLabel, _memberCount: siblings.length, _completedCount: completed }
     }).filter(Boolean)
-  }, [tasks, canManage, viewTab])
+  }, [tasks, canManage, effectiveViewTab])
 
   // ─── View tab options ─────────────────────────────────────────────────────────
   const viewTabs = canManage

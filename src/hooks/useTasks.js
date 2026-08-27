@@ -1,37 +1,60 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 import { sanitizeName, sanitizeText, sanitizeEnum, sanitizeNumber, sanitizeDate } from '../utils/sanitize'
 import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
 
-// Cache key generators
-const getTasksCacheKey = (statusFilter, viewFilter, user) => {
-  return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${user?.id || 'none'}`
+// Cache key generators — always user-isolated to prevent cross-user cache collisions
+const getTasksCacheKey = (statusFilter, viewFilter, userId) => {
+  return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${userId || 'none'}`
 }
 const TASKS_CACHE_TAG = 'tasks'
 
 export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
   const { user, role } = useAuth()
+
+  // Derive role flags — these are used in render logic (viewTabs, displayTasks, etc.)
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
+  const isSystemAdmin = ['chairperson', 'vice_chairperson'].includes(role)
+
+  // Use refs so the fetcher always sees the latest role-derived values
+  // without stale closures — the fetcher is created once but must read
+  // the *current* role on every invocation.
+  const canManageRef = useRef(canManage)
+  canManageRef.current = canManage
+  const isSystemAdminRef = useRef(isSystemAdmin)
+  isSystemAdminRef.current = isSystemAdmin
+  const roleRef = useRef(role)
+  roleRef.current = role
+
+  // CRITICAL: Don't start fetching until role is resolved.
+  // `user` is set from the session cache before the profile (which contains
+  // the role) is fetched.  If we start querying with role=null, we build
+  // wrong filters (non-admin filter for admin users) and cache the result
+  // under the final cache key, causing "Your Tasks" to show all tasks.
+  const isReady = !!user && role !== null
 
   // Use cached query for fetching
   const {
     data: tasks = [],
-    loading,
+    loading: cacheLoading,
     error,
     isStale,
     refetch,
     updateCache
   } = useCachedQuery(
-    getTasksCacheKey(statusFilter, viewFilter, user),
+    getTasksCacheKey(statusFilter, viewFilter, user?.id),
     async () => {
       if (!user) return []
-      
-      // Resolve user's team associations for "team" or "mine_and_team" views
+
+      // Read current role-derived values from refs (not closure captures)
+      const _canManage = canManageRef.current
+
+      // Resolve user's team associations for "team" view or non-manager default view
       let myEventTeamIds = []
       let myProjectIds = []
       
-      if (!canManage || viewFilter === 'team' || viewFilter === 'mine_and_team') {
+      if (!_canManage || viewFilter === 'team') {
         const [
           eventTeamMembersRes,
           eventTeamsCreatedRes,
@@ -83,7 +106,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         myEventTeamIds = [...new Set([...etmIds, ...etcIds, ...matchedEventTeamIds])]
       }
 
-      // Fetch general tasks
+      // ─── Build general tasks query ────────────────────────────────────────
       let query = supabase
         .from('tasks')
         .select(`
@@ -99,14 +122,20 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         `)
 
       if (viewFilter === 'mine') {
+        // "Your Tasks" — always only tasks assigned to the current user
         query = query.eq('assigned_to', user.id)
       } else if (viewFilter === 'team') {
+        // "Your Team Tasks" — tasks in the user's projects
         if (myProjectIds.length > 0) {
           query = query.in('project_id', myProjectIds)
         } else {
-          query = query.eq('id', '00000000-0000-0000-0000-000000000000') // impossible
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000') // impossible match
         }
-      } else if (!canManage || viewFilter === 'mine_and_team') {
+      } else if (viewFilter === 'all' && _canManage) {
+        // "All Tasks" for managers — no client-side filter, rely on RLS
+        // (no filter applied — Supabase RLS will scope appropriately)
+      } else {
+        // Default/fallback for non-managers — show own + assigned-by + project tasks
         let condition = `assigned_to.eq.${user.id},assigned_by.eq.${user.id}`
         if (myProjectIds.length > 0) {
           condition += `,project_id.in.(${myProjectIds.join(',')})`
@@ -114,7 +143,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         query = query.or(condition)
       }
 
-      // Fetch event tasks
+      // ─── Build event tasks query ──────────────────────────────────────────
       let eventTasksQuery = supabase
         .from('event_tasks')
         .select(`
@@ -130,9 +159,11 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         if (myEventTeamIds.length > 0) {
           eventTasksQuery = eventTasksQuery.in('event_team_id', myEventTeamIds)
         } else {
-          eventTasksQuery = eventTasksQuery.eq('id', '00000000-0000-0000-0000-000000000000') // no teams
+          eventTasksQuery = eventTasksQuery.eq('id', '00000000-0000-0000-0000-000000000000')
         }
-      } else if (!canManage || viewFilter === 'mine_and_team') {
+      } else if (viewFilter === 'all' && _canManage) {
+        // "All Tasks" for managers — no client-side filter, rely on RLS
+      } else {
         if (myEventTeamIds.length > 0) {
           eventTasksQuery = eventTasksQuery.or(`assigned_to.eq.${user.id},event_team_id.in.(${myEventTeamIds.join(',')})`)
         } else {
@@ -175,9 +206,15 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
       tags: [TASKS_CACHE_TAG],
       refetchOnMount: true,
       refetchOnWindowFocus: false,
-      enabled: !!user
+      // CRITICAL: Don't fetch until both user AND role are resolved.
+      // This prevents the initial fetch from running with role=null
+      // (which would apply wrong filters and cache wrong results).
+      enabled: isReady
     }
   )
+
+  // Show loading while waiting for role to resolve OR while cache is loading
+  const loading = !isReady || cacheLoading
 
   // Mutations with cache invalidation
   const assignTask = useCachedMutation(
