@@ -108,11 +108,11 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
           query = query.eq('id', '00000000-0000-0000-0000-000000000000') // impossible
         }
       } else if (!isAdminOrCoordinator || viewFilter === 'mine_and_team') {
+        let condition = `assigned_to.eq.${user.id},assigned_by.eq.${user.id}`
         if (myProjectIds.length > 0) {
-          query = query.or(`assigned_to.eq.${user.id},project_id.in.(${myProjectIds.join(',')})`)
-        } else {
-          query = query.eq('assigned_to', user.id)
+          condition += `,project_id.in.(${myProjectIds.join(',')})`
         }
+        query = query.or(condition)
       }
 
       // Fetch event tasks
