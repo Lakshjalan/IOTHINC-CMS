@@ -506,13 +506,13 @@ const ScheduleModal = ({ onClose, onSave }) => {
   const [teams, setTeams] = useState([])
 
   useEffect(() => {
-    // Fetch departments from profiles
-    supabase.from('profiles').select('department').then(r => {
-      const depts = [...new Set((r.data || []).map(p => p.department).filter(Boolean))]
+    // Fetch departments from teams (active teams only)
+    supabase.from('teams').select('department').eq('status', 'active').then(r => {
+      const depts = [...new Set((r.data || []).map(t => t.department).filter(Boolean))]
       setDepartments(depts)
     })
     // Fetch teams
-    supabase.from('teams').select('id,name,department').then(r => setTeams(r.data || []))
+    supabase.from('teams').select('id,name,department').eq('status', 'active').then(r => setTeams(r.data || []))
   }, [])
 
   const handleSubmit = async (e) => {

@@ -5,8 +5,6 @@ import { useNotifications } from '../hooks/useNotifications'
 import { supabase } from '../supabaseClient'
 import { ListSkeleton } from '../components/SkeletonLoaders'
 
-const DEPARTMENTS = ['IoT', 'Web Dev', 'AI/ML', 'Embedded', 'Design', 'Management']
-
 const Tasks = () => {
   const { role, user } = useAuth()
   const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
@@ -23,6 +21,7 @@ const Tasks = () => {
   const [teams, setTeams] = useState([])
   const [projects, setProjects] = useState([])
   const [events, setEvents] = useState([])
+  const [departments, setDepartments] = useState([])
 
   // assign-to type: 'member' | 'department' | 'team'
   const [assignType, setAssignType] = useState('member')
@@ -40,6 +39,14 @@ const Tasks = () => {
   const [completionSelectModal, setCompletionSelectModal] = useState(null)
   const [completionSelection, setCompletionSelection] = useState({})
   const [completionLoading, setCompletionLoading] = useState(false)
+
+  // Fetch departments from database (from teams table)
+  useEffect(() => {
+    supabase.from('teams').select('department').eq('status', 'active').then(r => {
+      const uniqueDepts = [...new Set((r.data || []).map(t => t.department).filter(Boolean))]
+      setDepartments(uniqueDepts.sort())
+    })
+  }, [])
 
   useEffect(() => { document.title = 'Tasks | IOTHINC' }, [])
 
@@ -282,7 +289,7 @@ const Tasks = () => {
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Select Department</label>
                   <select value={form.department} onChange={e => setForm({...form, department: e.target.value})} className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm" required>
                     <option value="">Select department...</option>
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               )}

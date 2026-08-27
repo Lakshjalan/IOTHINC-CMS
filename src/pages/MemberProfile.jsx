@@ -13,6 +13,7 @@ const MemberProfile = () => {
   const [member, setMember] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('About')
+  const [departments, setDepartments] = useState([])
 
   // Tabs Data
   const [contributions, setContributions] = useState([])
@@ -45,6 +46,25 @@ const MemberProfile = () => {
   const isOwnProfile = currentUser?.id === id
   const canEdit = isOwnProfile || (currentRole === 'chairperson' || currentRole === 'vice_chairperson')
 
+  // Fetch unique departments from teams (for reference)
+  useEffect(() => {
+    supabase
+      .from('teams')
+      .select('department')
+      .eq('status', 'active')
+      .then(r => {
+        const uniqueDepts = [...new Set((r.data || []).map(t => t.department).filter(Boolean))]
+        setDepartments(uniqueDepts.sort())
+      })
+  }, [])
+
+  // Fetch member's computed department from team membership
+  const fetchMemberDepartment = async () => {
+    const { data } = await supabase
+      .rpc('get_member_department', { member_id: id })
+    return data
+  }
+
   const fetchProfileData = async () => {
     setLoading(true)
     try {
@@ -57,9 +77,13 @@ const MemberProfile = () => {
 
       if (profErr) throw profErr
       setMember(prof)
+
+      // Fetch computed department from team membership
+      const computedDept = await fetchMemberDepartment()
+
       setEditForm({
         full_name: prof.full_name,
-        department: prof.department || '',
+        department: computedDept || prof.department || '',
         year: prof.year || '',
         residence_type: prof.residence_type || '',
         bio: prof.bio || '',
@@ -102,6 +126,71 @@ const MemberProfile = () => {
         .eq('status', 'confirmed')
       setRegistrations(regs || [])
 
+      // 5. Fetch Meetings and Calculate Statistics
+      const { data: mtgs } = await supabase
+        .from('meetings')
+        .select(`
+          *,
+          meeting_attendees!inner(member_id),
+          creator:profiles!meetings_created_by_fkey(full_name, department)
+        `)
+        .in('status', ['completed', 'live'])
+        .order('scheduled_start', { ascending: false })
+
+      const allMeetings = mtgs || []
+      setMeetings(allMeetings)
+
+      // Calculate meeting statistics
+      // Get member's department and teams
+      const memberDept = prof.department
+      const { data: memberTeams } = await supabase
+        .from('team_members')
+        .select('team_id, teams!inner(id, name, department)')
+        .eq('member_id', id)
+
+      const teamIds = (memberTeams || []).map(t => t.team_id)
+      const teamDepartments = [...new Set((memberTeams || []).map(t => t.teams?.department).filter(Boolean))]
+
+      // Calculate stats
+      let totalConducted = 0
+      let attended = 0
+      let departmentConducted = 0
+      let teamConducted = 0
+
+      for (const meeting of allMeetings) {
+        const isAttended = meeting.meeting_attendees?.some(a => a.member_id === id) || false
+        const creatorDept = meeting.creator?.department
+
+        // Check if meeting was for all, department, or team
+        const targetType = meeting.target_type || 'all'
+        const targetDepts = meeting.target_departments || []
+        const targetTeams = meeting.target_team_ids || []
+
+        let isForMember = false
+
+        if (targetType === 'all') {
+          isForMember = true
+        } else if (targetType === 'department' && memberDept && targetDepts.includes(memberDept)) {
+          isForMember = true
+          departmentConducted++
+        } else if (targetType === 'team' && targetTeams.some(t => teamIds.includes(t))) {
+          isForMember = true
+          teamConducted++
+        }
+
+        if (isForMember) {
+          totalConducted++
+          if (isAttended) attended++
+        }
+      }
+
+      setMeetingStats({
+        totalConducted,
+        attended,
+        departmentConducted,
+        teamConducted,
+      })
+
     } catch (err) {
       console.error(err)
     } finally {
@@ -116,15 +205,15 @@ const MemberProfile = () => {
   const handleUpdate = async (e) => {
     e.preventDefault()
     try {
-      const skillsArray = editForm.skills 
-        ? editForm.skills.split(',').map(s => s.trim()) 
+      const skillsArray = editForm.skills
+        ? editForm.skills.split(',').map(s => s.trim())
         : []
 
+      // Note: department is auto-computed from team membership, not manually editable
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: editForm.full_name,
-          department: editForm.department,
           year: editForm.year,
           residence_type: editForm.residence_type,
           bio: editForm.bio,
@@ -206,7 +295,7 @@ const MemberProfile = () => {
           </div>
           
           <p className="text-on-surface-variant font-medium mt-2">
-            {member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}{member?.residence_type ? ` • ${member.residence_type === 'hosteller' ? 'Hosteller' : 'Day Scholar'}` : ''}
+            {editForm.department || member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}{member?.residence_type ? ` • ${member.residence_type === 'hosteller' ? 'Hosteller' : 'Day Scholar'}` : ''}
           </p>
 
           <div className="flex gap-4 justify-center md:justify-start mt-4">
@@ -235,7 +324,7 @@ const MemberProfile = () => {
 
       {/* Tabs list */}
       <div className="flex gap-2 border-b border-outline-variant mb-6 pb-px overflow-x-auto no-scrollbar">
-        {['About', 'Contributions', 'Progress', 'Events'].map(tab => (
+        {['About', 'Contributions', 'Progress', 'Events', 'Report'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -264,12 +353,13 @@ const MemberProfile = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Department</label>
-                  <input 
-                    type="text" 
-                    value={editForm.department}
-                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                    className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
-                  />
+                  <div className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm text-on-surface-variant">
+                    {editForm.department || 'Not assigned to any department'}
+                    <p className="text-xs text-on-surface-variant mt-1 italic">
+                      Auto-set from team membership. Join a team to update.
+                    </p>
+                  </div>
+                  <input type="hidden" name="department" value={editForm.department} />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -317,34 +407,17 @@ const MemberProfile = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">LinkedIn URL</label>
-                  <input 
-                    type="url" 
+                  <input
+                    type="url"
                     value={editForm.linkedin_url}
                     onChange={(e) => setEditForm({ ...editForm, linkedin_url: e.target.value })}
                     className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
                   />
                 </div>
               </div>
-             {(currentRole === 'chairperson' || currentRole === 'vice_chairperson') && (
-                <>
-                  <div>
-                    <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Role (Admin Only)</label>
-                    <select
-                      value={editForm.role}
-                      onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                      className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
-                    >
-                      <option value="member">Member</option>
-                      <option value="coordinator">Coordinator</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                </>
-              )}
-              
               <div>
                 <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Bio</label>
-                <textarea 
+                <textarea
                   value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                   className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm h-28 resize-none focus:ring-primary"
@@ -482,6 +555,117 @@ const MemberProfile = () => {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {activeTab === 'Report' && (
+        <div className="space-y-6">
+          {/* Meeting Statistics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-2xl">groups</span>
+                </div>
+                <div>
+                  <p className="text-xs font-label-caps text-on-surface-variant uppercase">Total Meetings</p>
+                  <p className="font-headline-lg text-2xl font-bold text-on-surface">{meetingStats.totalConducted}</p>
+                </div>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-2">Conducted for you</p>
+            </div>
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-success text-2xl">check_circle</span>
+                </div>
+                <div>
+                  <p className="text-xs font-label-caps text-on-surface-variant uppercase">Attended</p>
+                  <p className="font-headline-lg text-2xl font-bold text-on-surface">{meetingStats.attended}</p>
+                </div>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-2">
+                {meetingStats.totalConducted > 0
+                  ? `${Math.round((meetingStats.attended / meetingStats.totalConducted) * 100)}% attendance`
+                  : 'No meetings yet'}
+              </p>
+            </div>
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-amber-400 text-2xl">business</span>
+                </div>
+                <div>
+                  <p className="text-xs font-label-caps text-on-surface-variant uppercase">Dept Meetings</p>
+                  <p className="font-headline-lg text-2xl font-bold text-on-surface">{meetingStats.departmentConducted}</p>
+                </div>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-2">Department-level</p>
+            </div>
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-purple-400 text-2xl">groups_2</span>
+                </div>
+                <div>
+                  <p className="text-xs font-label-caps text-on-surface-variant uppercase">Team Meetings</p>
+                  <p className="font-headline-lg text-2xl font-bold text-on-surface">{meetingStats.teamConducted}</p>
+                </div>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-2">Team-level</p>
+            </div>
+          </div>
+
+          {/* Recent Meetings */}
+          <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm">
+            <h3 className="font-bold text-on-surface mb-4">Recent Meetings</h3>
+            {meetings.length === 0 ? (
+              <p className="text-center text-on-surface-variant italic py-8">No meetings recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {meetings.slice(0, 10).map(meeting => {
+                  const isAttended = meeting.meeting_attendees?.some(a => a.member_id === id) || false
+                  const targetType = meeting.target_type || 'all'
+                  const targetDepts = meeting.target_departments || []
+                  const targetTeams = meeting.target_team_ids || []
+                  let targetLabel = 'All Members'
+                  if (targetType === 'department' && targetDepts.length > 0) {
+                    targetLabel = `Department: ${targetDepts.join(', ')}`
+                  } else if (targetType === 'team' && targetTeams.length > 0) {
+                    targetLabel = `Teams: ${targetTeams.length} team(s)`
+                  }
+                  return (
+                    <div key={meeting.id} className="bg-surface-container-low rounded-lg border border-outline-variant/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h4 className="font-bold text-on-surface text-sm">{meeting.title}</h4>
+                          <span className={`text-[10px] font-label-caps uppercase px-2 py-0.5 rounded ${isAttended ? 'bg-success/20 text-success' : 'bg-error/20 text-error'}`}>
+                            {isAttended ? 'Attended' : 'Missed'}
+                          </span>
+                          <span className="text-[10px] font-label-caps uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                            {targetType.charAt(0).toUpperCase() + targetType.slice(1)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-on-surface-variant flex flex-wrap gap-4">
+                          <span>📅 {new Date(meeting.scheduled_start).toLocaleDateString()}</span>
+                          <span>🕐 {new Date(meeting.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{targetLabel}</span>
+                        </p>
+                      </div>
+                      {meeting.minutes_text && (
+                        <button className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors shrink-0"
+                          onClick={() => alert(meeting.minutes_text)}
+                          title="View Minutes"
+                        >
+                          View Minutes
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
