@@ -82,7 +82,9 @@ const Tasks = () => {
       }
 
       if (assignType === 'member') {
+        console.log("Assigning to member:", form.assigned_to)
         await assignTask({ ...baseTask, assigned_to: form.assigned_to })
+        console.log("assignTask completed successfully")
         await sendNotification({
           title: 'New Task Assigned',
           message: `You have been assigned a new task: "${form.title}"`,
@@ -91,7 +93,12 @@ const Tasks = () => {
         })
       } else if (assignType === 'department') {
         const deptMembers = members.filter(m => m.department === form.department)
+        console.log(`Assigning to department ${form.department}, found ${deptMembers.length} members`)
+        if (deptMembers.length === 0) {
+          alert(`No members found in department: ${form.department}`)
+        }
         for (const m of deptMembers) {
+          console.log("Inserting task for member:", m.id)
           const { error } = await supabase.from('tasks').insert({
             ...baseTask, assigned_to: m.id, assigned_by: user?.id,
             // Store department in admin_comment as a marker for department tasks
@@ -109,7 +116,12 @@ const Tasks = () => {
       } else if (assignType === 'team') {
         const { data: teamMembers } = await supabase
           .from('team_members').select('member_id').eq('team_id', form.team_id)
+        console.log(`Assigning to team ${form.team_id}, found ${teamMembers?.length || 0} members`)
+        if (!teamMembers || teamMembers.length === 0) {
+          alert(`No members found in team.`)
+        }
         for (const tm of teamMembers || []) {
+          console.log("Inserting task for team member:", tm.member_id)
           const { error } = await supabase.from('tasks').insert({
             ...baseTask, assigned_to: tm.member_id, assigned_by: user?.id
           })
@@ -126,7 +138,10 @@ const Tasks = () => {
 
       setShowAssign(false)
       setForm({ title: '', assigned_to: '', department: '', team_id: '', event_id: '', project_id: '', priority: 'medium', due_date: '' })
-    } catch (err) { alert(err.message) }
+    } catch (err) { 
+      console.error("Error in handleAssign:", err)
+      alert("Error assigning task: " + err.message) 
+    }
   }
 
   const handleCompleteAll = async (task) => {
