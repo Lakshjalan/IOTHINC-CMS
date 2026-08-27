@@ -5,15 +5,14 @@ import { sanitizeName, sanitizeText, sanitizeEnum, sanitizeNumber, sanitizeDate 
 import { useCachedQuery, useCachedMutation } from '../context/CacheContext'
 
 // Cache key generators
-const getTasksCacheKey = (statusFilter, viewFilter, user, role) => {
-  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson'].includes(role)
-  return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${isAdminOrCoordinator ? 'all' : user?.id || 'none'}`
+const getTasksCacheKey = (statusFilter, viewFilter, user) => {
+  return `tasks_merged_${statusFilter || 'All'}_${viewFilter}_${user?.id || 'none'}`
 }
 const TASKS_CACHE_TAG = 'tasks'
 
 export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
   const { user, role } = useAuth()
-  const isAdminOrCoordinator = ['chairperson', 'vice_chairperson'].includes(role)
+  const canManage = ['chairperson', 'vice_chairperson', 'department_lead'].includes(role)
 
   // Use cached query for fetching
   const {
@@ -24,7 +23,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
     refetch,
     updateCache
   } = useCachedQuery(
-    getTasksCacheKey(statusFilter, viewFilter, user, role),
+    getTasksCacheKey(statusFilter, viewFilter, user),
     async () => {
       if (!user) return []
       
@@ -32,7 +31,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
       let myEventTeamIds = []
       let myProjectIds = []
       
-      if (!isAdminOrCoordinator || viewFilter === 'team' || viewFilter === 'mine_and_team') {
+      if (!canManage || viewFilter === 'team' || viewFilter === 'mine_and_team') {
         const [
           eventTeamMembersRes,
           eventTeamsCreatedRes,
@@ -107,7 +106,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         } else {
           query = query.eq('id', '00000000-0000-0000-0000-000000000000') // impossible
         }
-      } else if (!isAdminOrCoordinator || viewFilter === 'mine_and_team') {
+      } else if (!canManage || viewFilter === 'mine_and_team') {
         let condition = `assigned_to.eq.${user.id},assigned_by.eq.${user.id}`
         if (myProjectIds.length > 0) {
           condition += `,project_id.in.(${myProjectIds.join(',')})`
@@ -133,7 +132,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         } else {
           eventTasksQuery = eventTasksQuery.eq('id', '00000000-0000-0000-0000-000000000000') // no teams
         }
-      } else if (!isAdminOrCoordinator || viewFilter === 'mine_and_team') {
+      } else if (!canManage || viewFilter === 'mine_and_team') {
         if (myEventTeamIds.length > 0) {
           eventTasksQuery = eventTasksQuery.or(`assigned_to.eq.${user.id},event_team_id.in.(${myEventTeamIds.join(',')})`)
         } else {

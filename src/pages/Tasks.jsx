@@ -50,6 +50,13 @@ const Tasks = () => {
 
   useEffect(() => { document.title = 'Tasks | IOTHINC' }, [])
 
+  // Sync default viewTab when user role/canManage resolves
+  useEffect(() => {
+    if (role) {
+      setViewTab(canManage ? 'all' : 'mine')
+    }
+  }, [role, canManage])
+
   useEffect(() => {
     if (!canManage) return
     supabase.from('profiles').select('id,full_name,department').then(r => {
