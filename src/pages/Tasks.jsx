@@ -36,13 +36,8 @@ const Tasks = () => {
   const [reqForm, setReqForm] = useState({ reg_no: '', desc: '' })
   const [reqLoading, setReqLoading] = useState(false)
 
-  // department lead completion selection modal
-  const [completionSelectModal, setCompletionSelectModal] = useState(null)
-  const [completionSelection, setCompletionSelection] = useState({})
-  const [completionLoading, setCompletionLoading] = useState(false)
-
-  // "View Members" modal for batch tasks (admin)
-  const [membersModal, setMembersModal] = useState(null) // { title, label, members: [{name, status}] }
+  // "View Members & Complete Tasks" combined modal for batch tasks (admin)
+  const [membersModal, setMembersModal] = useState(null) // { batch_id, title, label, members: [{id, name, status, assigned_to}] }
   const [membersModalLoading, setMembersModalLoading] = useState(false)
 
   // Fetch departments from database (from teams table)
@@ -143,97 +138,87 @@ const Tasks = () => {
     }
   }
 
-  // ─── Batch completion (optimistic, no reload) ────────────────────────────────
-  const handleCompleteAll = async (task) => {
-    if (!task.batch_id) {
-      toggleTaskCompleted(task)
-      return
-    }
+  // ─── Single Member completion toggle from within modal ───────────────────────
+  const handleToggleMemberTask = async (memberItem) => {
+    if (!membersModal) return
+    const isCompleted = memberItem.status === 'completed'
+    const newStatus = isCompleted ? 'not_started' : 'completed'
+    const newProgress = newStatus === 'completed' ? 100 : 0
 
-    const deptMatch = task.admin_comment?.match(/department:([^;]+)/)
-    const teamMatch = task.admin_comment?.match(/team:([^;]+)/)
-    const assignedDepartment = deptMatch ? deptMatch[1] : null
+    // 1. Update the local membersModal state so the checkbox toggles instantly
+    setMembersModal(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        members: prev.members.map(m => m.id === memberItem.id ? { ...m, status: newStatus } : m)
+      }
+    })
 
-    // For department tasks — open member selection modal
-    if (assignedDepartment && (isDepartmentLead || isSystemAdmin)) {
-      const deptMembers = members.filter(m => m.department === assignedDepartment)
-      setCompletionSelection(Object.fromEntries(deptMembers.map(m => [m.id, false])))
-      setCompletionSelectModal({ ...task, deptMembers, assignedDepartment })
-      return
-    }
-
-    // For team or generic batch tasks — complete all optimistically
+    // 2. Update the main tasks list (the parent page cache)
     const originalTasks = [...tasks]
     const updated = tasks.map(t =>
-      t.batch_id === task.batch_id ? { ...t, status: 'completed', progress: 100 } : t
+      t.id === memberItem.id ? { ...t, status: newStatus, progress: newProgress } : t
     )
     updateCache(updated)
 
+    // 3. Update the database using supabase
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({ status: 'completed', progress: 100 })
-        .eq('batch_id', task.batch_id)
+        .update({ status: newStatus, progress: newProgress })
+        .eq('id', memberItem.id)
+
       if (error) throw error
     } catch (err) {
+      // Rollback local states
+      setMembersModal(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          members: prev.members.map(m => m.id === memberItem.id ? { ...m, status: memberItem.status } : m)
+        }
+      })
       updateCache(originalTasks)
-      alert('Failed to update: ' + err.message)
+      alert('Failed to update member task: ' + err.message)
     }
   }
 
-  // ─── Department completion selection (optimistic) ────────────────────────────
-  const handleDepartmentCompletion = async (e) => {
-    e.preventDefault()
-    if (!completionSelectModal) return
+  // ─── Complete all members in batch task ──────────────────────────────────────
+  const handleCompleteAllMembers = async (batchId) => {
+    if (!batchId) return
 
-    setCompletionLoading(true)
-    try {
-      const task = completionSelectModal
-      const selectedMemberIds = Object.entries(completionSelection)
-        .filter(([_, selected]) => selected)
-        .map(([id]) => id)
-
-      if (selectedMemberIds.length === 0) {
-        alert('Please select at least one member')
-        setCompletionLoading(false)
-        return
+    // 1. Update local membersModal state
+    setMembersModal(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        members: prev.members.map(m => ({ ...m, status: 'completed' }))
       }
+    })
 
-      // Optimistic update
-      const originalTasks = [...tasks]
-      const updated = tasks.map(t =>
-        t.batch_id === task.batch_id && selectedMemberIds.includes(t.assigned_to)
-          ? { ...t, status: 'completed', progress: 100 }
-          : t
-      )
-      updateCache(updated)
+    // 2. Update main tasks list cache
+    const originalTasks = [...tasks]
+    const updated = tasks.map(t =>
+      t.batch_id === batchId ? { ...t, status: 'completed', progress: 100 } : t
+    )
+    updateCache(updated)
 
+    // 3. Update database
+    try {
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'completed', progress: 100 })
-        .eq('batch_id', task.batch_id)
-        .in('assigned_to', selectedMemberIds)
+        .eq('batch_id', batchId)
 
-      if (error) {
-        updateCache(originalTasks)
-        throw error
-      }
-
-      setCompletionSelectModal(null)
-      setCompletionSelection({})
+      if (error) throw error
     } catch (err) {
-      alert(err.message)
-    } finally {
-      setCompletionLoading(false)
+      // Rollback main cache
+      updateCache(originalTasks)
+      alert('Failed to complete all tasks: ' + err.message)
+      if (membersModal) {
+        openMembersModal({ batch_id: batchId, title: membersModal.title, _groupLabel: membersModal.label })
+      }
     }
-  }
-
-  const handleSelectAll = () => {
-    if (!completionSelectModal) return
-    const allSelected = Object.values(completionSelection).every(v => v)
-    setCompletionSelection(
-      Object.fromEntries(completionSelectModal.deptMembers.map(m => [m.id, !allSelected]))
-    )
   }
 
   // ─── Member completion request ───────────────────────────────────────────────
@@ -277,21 +262,23 @@ const Tasks = () => {
   // ─── View Members modal for a batch task ────────────────────────────────────
   const openMembersModal = useCallback(async (batchTask) => {
     setMembersModalLoading(true)
-    setMembersModal({ title: batchTask.title, label: batchTask._groupLabel, members: [] })
+    setMembersModal({ batch_id: batchTask.batch_id, title: batchTask.title, label: batchTask._groupLabel, members: [] })
 
     try {
       const { data: batchTasks, error } = await supabase
         .from('tasks')
-        .select('assigned_to, status, assignee:profiles!tasks_assigned_to_fkey(full_name)')
+        .select('id, assigned_to, status, assignee:profiles!tasks_assigned_to_fkey(full_name)')
         .eq('batch_id', batchTask.batch_id)
 
       if (error) throw error
 
       const memberRows = (batchTasks || []).map(t => ({
+        id: t.id,
         name: t.assignee?.full_name || 'Unknown',
         status: t.status,
+        assigned_to: t.assigned_to
       }))
-      setMembersModal({ title: batchTask.title, label: batchTask._groupLabel, members: memberRows })
+      setMembersModal({ batch_id: batchTask.batch_id, title: batchTask.title, label: batchTask._groupLabel, members: memberRows })
     } catch (err) {
       alert('Failed to load members: ' + err.message)
       setMembersModal(null)
@@ -580,7 +567,7 @@ const Tasks = () => {
                           onClick={() => {
                             if (!canManage) return
                             if (t._isGroupCard) {
-                              handleCompleteAll(t)
+                              openMembersModal(t)
                             } else {
                               toggleTaskCompleted(t)
                             }
@@ -636,34 +623,14 @@ const Tasks = () => {
 
                       {/* Action Buttons */}
                       <div className="flex gap-2 mt-3 pt-3 border-t border-outline-variant/50 flex-wrap">
-                        {/* Group card: View Members button */}
+                        {/* Group card: View Members / Manage Progress button */}
                         {t._isGroupCard && (
                           <button
                             onClick={() => openMembersModal(t)}
                             className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1"
                           >
                             <span className="material-symbols-outlined text-sm">group</span>
-                            View Members
-                          </button>
-                        )}
-
-                        {/* Group card (dept): select completion per member */}
-                        {t._isGroupCard && (() => {
-                          const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
-                          return (isDepartmentLead || isSystemAdmin) && deptMatch && t.status !== 'completed'
-                        })() && (
-                          <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors">
-                            Mark Members Complete
-                          </button>
-                        )}
-
-                        {/* Group card (team): complete all */}
-                        {t._isGroupCard && (() => {
-                          const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
-                          return canManage && !deptMatch && t.status !== 'completed'
-                        })() && (
-                          <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-success/10 text-success border border-success/20 rounded-lg hover:bg-success/20 transition-colors">
-                            Complete All
+                            View & Manage Members
                           </button>
                         )}
 
@@ -739,58 +706,40 @@ const Tasks = () => {
         </div>
       )}
 
-      {/* ── Department Lead Completion Selection Modal ────────────────────────── */}
-      {completionSelectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setCompletionSelectModal(null); setCompletionSelection({}) }}>
-          <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold text-base text-on-surface mb-1">Mark Completed Members</h3>
-            <p className="text-xs text-on-surface-variant mb-5">"{completionSelectModal.title}" — Department: {completionSelectModal.assignedDepartment}</p>
-            <form onSubmit={handleDepartmentCompletion} className="space-y-4">
-              <div className="space-y-2">
-                {completionSelectModal.deptMembers.map(m => (
-                  <label key={m.id} className="flex items-center gap-2 p-2 bg-surface-container-low rounded-lg border border-outline-variant hover:bg-surface-container-high transition-colors cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!completionSelection[m.id]}
-                      onChange={e => setCompletionSelection(prev => ({ ...prev, [m.id]: e.target.checked }))}
-                      className="w-4 h-4 text-primary border-outline-variant rounded focus:ring-primary"
-                    />
-                    <span className="text-sm text-on-surface">{m.full_name}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-outline-variant/50">
-                <button type="button" onClick={handleSelectAll} className="text-xs font-bold font-label-caps uppercase text-primary hover:underline">
-                  {Object.values(completionSelection).every(v => v) ? 'Deselect All' : 'Select All'}
-                </button>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => { setCompletionSelectModal(null); setCompletionSelection({}) }} className="px-4 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg font-label-caps text-xs uppercase">Cancel</button>
-                  <button type="submit" disabled={completionLoading} className="px-5 py-2 bg-amber-500 text-black rounded-lg font-bold font-label-caps text-xs uppercase hover:brightness-110 disabled:opacity-60">
-                    {completionLoading ? 'Saving...' : 'Mark Completed'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── View Members Modal (batch task member status) ─────────────────────── */}
+      {/* ── View & Manage Members Modal (Combined modal for batch task member status + completions) ── */}
       {membersModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setMembersModal(null)}>
           <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bold text-base text-on-surface">Member Status</h3>
-              <button onClick={() => setMembersModal(null)} className="text-on-surface-variant hover:text-on-surface transition-colors">
+            <div className="flex items-start justify-between mb-1">
+              <div>
+                <h3 className="font-bold text-base text-on-surface">Member Status & Completion</h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">"{membersModal.title}"</p>
+              </div>
+              <button onClick={() => setMembersModal(null)} className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-container-high">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <p className="text-xs text-on-surface-variant mb-1">"{membersModal.title}"</p>
-            {membersModal.label && (
-              <span className="inline-block text-[10px] font-bold font-label-caps uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded mb-4">
-                {membersModal.label}
-              </span>
-            )}
+
+            <div className="flex items-center justify-between gap-2 mt-3 mb-4">
+              <div>
+                {membersModal.label && (
+                  <span className="inline-block text-[10px] font-bold font-label-caps uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
+                    {membersModal.label}
+                  </span>
+                )}
+              </div>
+              {/* Button in the top to complete the task of all members */}
+              {!membersModalLoading && membersModal.members.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleCompleteAllMembers(membersModal.batch_id)}
+                  className="text-[10px] font-bold font-label-caps uppercase bg-success/20 text-success border border-success/30 px-3 py-1.5 rounded-lg hover:bg-success/30 transition-colors flex items-center gap-1 active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-xs">done_all</span>
+                  Complete for All
+                </button>
+              )}
+            </div>
 
             {membersModalLoading ? (
               <div className="space-y-2">
@@ -801,17 +750,26 @@ const Tasks = () => {
             ) : membersModal.members.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic">No members found.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                 {membersModal.members.map((m, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant">
+                  <label
+                    key={m.id || i}
+                    className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${m.status === 'completed' ? 'bg-success' : 'bg-amber-400'}`} />
+                      {/* Checkbox to complete the task of the single member */}
+                      <input
+                        type="checkbox"
+                        checked={m.status === 'completed'}
+                        onChange={() => handleToggleMemberTask(m)}
+                        className="w-4 h-4 text-primary border-outline-variant rounded focus:ring-primary cursor-pointer"
+                      />
                       <span className="text-sm text-on-surface font-medium">{m.name}</span>
                     </div>
                     <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${m.status === 'completed' ? 'bg-success/20 text-success' : 'bg-amber-500/20 text-amber-400'}`}>
                       {m.status === 'completed' ? 'Completed' : 'Pending'}
                     </span>
-                  </div>
+                  </label>
                 ))}
               </div>
             )}
