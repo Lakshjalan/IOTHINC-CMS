@@ -34,6 +34,7 @@ const MemberProfile = () => {
     department: '',
     year: '',
     residence_type: '',
+    reg_no: '',
     bio: '',
     skills: '',
     github_url: '',
@@ -58,13 +59,6 @@ const MemberProfile = () => {
       })
   }, [])
 
-  // Fetch member's computed department from team membership
-  const fetchMemberDepartment = async () => {
-    const { data } = await supabase
-      .rpc('get_member_department', { member_id: id })
-    return data
-  }
-
   const fetchProfileData = async () => {
     setLoading(true)
     try {
@@ -78,14 +72,12 @@ const MemberProfile = () => {
       if (profErr) throw profErr
       setMember(prof)
 
-      // Fetch computed department from team membership
-      const computedDept = await fetchMemberDepartment()
-
       setEditForm({
         full_name: prof.full_name,
-        department: computedDept || prof.department || '',
+        department: prof.department || '',
         year: prof.year || '',
         residence_type: prof.residence_type || '',
+        reg_no: prof.reg_no || '',
         bio: prof.bio || '',
         skills: prof.skills ? prof.skills.join(', ') : '',
         github_url: prof.github_url || '',
@@ -209,13 +201,14 @@ const MemberProfile = () => {
         ? editForm.skills.split(',').map(s => s.trim())
         : []
 
-      // Note: department is auto-computed from team membership, not manually editable
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: editForm.full_name,
+          department: editForm.department,
           year: editForm.year,
           residence_type: editForm.residence_type,
+          reg_no: editForm.reg_no,
           bio: editForm.bio,
           skills: skillsArray,
           github_url: editForm.github_url,
@@ -295,7 +288,7 @@ const MemberProfile = () => {
           </div>
           
           <p className="text-on-surface-variant font-medium mt-2">
-            {editForm.department || member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}{member?.residence_type ? ` • ${member.residence_type === 'hosteller' ? 'Hosteller' : 'Day Scholar'}` : ''}
+            {member?.reg_no ? `${member.reg_no} • ` : ''}{editForm.department || member?.department || 'Department N/A'} • {member?.year || 'Year N/A'}{member?.residence_type ? ` • ${member.residence_type === 'hosteller' ? 'Hosteller' : 'Day Scholar'}` : ''}
           </p>
 
           <div className="flex gap-4 justify-center md:justify-start mt-4">
@@ -340,7 +333,7 @@ const MemberProfile = () => {
         <div className="bg-surface-container rounded-xl border border-outline-variant p-6 shadow-sm">
           {editMode ? (
             <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Full Name</label>
                   <input 
@@ -352,14 +345,24 @@ const MemberProfile = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Registration Number</label>
+                  <input 
+                    type="text" 
+                    value={editForm.reg_no}
+                    onChange={(e) => setEditForm({ ...editForm, reg_no: e.target.value })}
+                    className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
+                    placeholder="e.g. 21BCE1000"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">Department</label>
-                  <div className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm text-on-surface-variant">
-                    {editForm.department || 'Not assigned to any department'}
-                    <p className="text-xs text-on-surface-variant mt-1 italic">
-                      Auto-set from team membership. Join a team to update.
-                    </p>
-                  </div>
-                  <input type="hidden" name="department" value={editForm.department} />
+                  <input 
+                    type="text" 
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant text-sm focus:ring-primary"
+                    placeholder="e.g. Computer Science"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

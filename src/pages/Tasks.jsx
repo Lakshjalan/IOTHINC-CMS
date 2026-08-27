@@ -42,8 +42,8 @@ const Tasks = () => {
 
   // Fetch departments from database (from teams table)
   useEffect(() => {
-    supabase.from('teams').select('department').eq('status', 'active').then(r => {
-      const uniqueDepts = [...new Set((r.data || []).map(t => t.department).filter(Boolean))]
+    supabase.from('teams').select('name').eq('status', 'active').then(r => {
+      const uniqueDepts = [...new Set((r.data || []).map(t => t.name).filter(Boolean))]
       setDepartments(uniqueDepts.sort())
     })
   }, [])
