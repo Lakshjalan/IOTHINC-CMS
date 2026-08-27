@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useTasks } from '../hooks/useTasks'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
@@ -92,11 +92,12 @@ const Tasks = () => {
       } else if (assignType === 'department') {
         const deptMembers = members.filter(m => m.department === form.department)
         for (const m of deptMembers) {
-          await supabase.from('tasks').insert({
+          const { error } = await supabase.from('tasks').insert({
             ...baseTask, assigned_to: m.id, assigned_by: user?.id,
             // Store department in admin_comment as a marker for department tasks
             admin_comment: `department:${form.department}`
           })
+          if (error) throw error
           await sendNotification({
             title: 'New Task Assigned',
             message: `You have been assigned a new task: "${form.title}"`,
@@ -109,9 +110,10 @@ const Tasks = () => {
         const { data: teamMembers } = await supabase
           .from('team_members').select('member_id').eq('team_id', form.team_id)
         for (const tm of teamMembers || []) {
-          await supabase.from('tasks').insert({
+          const { error } = await supabase.from('tasks').insert({
             ...baseTask, assigned_to: tm.member_id, assigned_by: user?.id
           })
+          if (error) throw error
           await sendNotification({
             title: 'New Task Assigned',
             message: `You have been assigned a new task: "${form.title}"`,
