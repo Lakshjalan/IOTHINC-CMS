@@ -358,6 +358,7 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
     error,
     isStale,
     refetch,
+    updateCache,
     assignTask,
     updateTaskProgress,
     toggleTaskCompleted: optimisticToggleTaskCompleted,

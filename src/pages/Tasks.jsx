@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTasks } from '../hooks/useTasks'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
@@ -13,7 +13,7 @@ const Tasks = () => {
 
   const [viewTab, setViewTab] = useState(canManage ? 'all' : 'mine')
   const [statusTab, setStatusTab] = useState('all')
-  const { tasks, loading, refetch, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab, viewTab)
+  const { tasks, loading, refetch, updateCache, assignTask, toggleTaskCompleted } = useTasks(statusTab === 'all' ? null : statusTab, viewTab)
   const { sendNotification } = useNotifications()
 
   const [showAssign, setShowAssign] = useState(false)
@@ -31,8 +31,8 @@ const Tasks = () => {
     event_id: '', project_id: '', priority: 'medium', due_date: ''
   })
 
-  // completion request modal
-  const [requestModal, setRequestModal] = useState(null) // task object or null
+  // completion request modal (member side)
+  const [requestModal, setRequestModal] = useState(null)
   const [reqForm, setReqForm] = useState({ reg_no: '', desc: '' })
   const [reqLoading, setReqLoading] = useState(false)
 
@@ -40,6 +40,10 @@ const Tasks = () => {
   const [completionSelectModal, setCompletionSelectModal] = useState(null)
   const [completionSelection, setCompletionSelection] = useState({})
   const [completionLoading, setCompletionLoading] = useState(false)
+
+  // "View Members" modal for batch tasks (admin)
+  const [membersModal, setMembersModal] = useState(null) // { title, label, members: [{name, status}] }
+  const [membersModalLoading, setMembersModalLoading] = useState(false)
 
   // Fetch departments from database (from teams table)
   useEffect(() => {
@@ -60,7 +64,6 @@ const Tasks = () => {
       } else {
         const myDept = all.find(m => m.id === user?.id)?.department
         setMembers(myDept ? all.filter(m => m.department === myDept) : all)
-        // Store user's department for form
         if (myDept) setForm(prev => ({ ...prev, department: myDept }))
       }
     })
@@ -69,6 +72,7 @@ const Tasks = () => {
     supabase.from('events').select('id,title').then(r => setEvents(r.data || []))
   }, [canManage, isSystemAdmin, user?.id])
 
+  // ─── Assign handler ─────────────────────────────────────────────────────────
   const handleAssign = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -111,61 +115,73 @@ const Tasks = () => {
         }
         refetch()
       } else if (assignType === 'team') {
+        const selectedTeam = teams.find(t => t.id === form.team_id)
+        const teamName = selectedTeam?.name || ''
         const { data: teamMembers } = await supabase
           .from('team_members').select('member_id').eq('team_id', form.team_id)
         if (!teamMembers || teamMembers.length === 0) {
-            alert('No members found in selected team.')
+          alert('No members found in selected team.')
         } else {
-            for (const member of teamMembers) {
-                const { error } = await supabase.from('tasks').insert({
-                    ...baseTask, assigned_to: member.member_id, assigned_by: user?.id
-                })
-                if (error) throw error
-            }
-            refetch()
+          for (const member of teamMembers) {
+            const { error } = await supabase.from('tasks').insert({
+              ...baseTask, assigned_to: member.member_id, assigned_by: user?.id,
+              admin_comment: `team:${teamName}`
+            })
+            if (error) throw error
+          }
+          refetch()
         }
       }
       alert('Task assigned successfully!')
       setShowAssign(false)
       setForm({ title: '', assigned_to: '', department: '', team_id: '', event_id: '', project_id: '', priority: 'medium', due_date: '' })
-    } catch (err) { 
-      console.error("Error in handleAssign:", err)
-      alert("Error assigning task: " + err.message) 
+    } catch (err) {
+      console.error('Error in handleAssign:', err)
+      alert('Error assigning task: ' + err.message)
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  // ─── Batch completion (optimistic, no reload) ────────────────────────────────
   const handleCompleteAll = async (task) => {
     if (!task.batch_id) {
       toggleTaskCompleted(task)
       return
     }
 
-    // Extract department from admin_comment if it's a department task
     const deptMatch = task.admin_comment?.match(/department:([^;]+)/)
+    const teamMatch = task.admin_comment?.match(/team:([^;]+)/)
     const assignedDepartment = deptMatch ? deptMatch[1] : null
 
-    // For department tasks, show selection modal for department leads and admins
+    // For department tasks — open member selection modal
     if (assignedDepartment && (isDepartmentLead || isSystemAdmin)) {
-      // Fetch department members for this task's department
       const deptMembers = members.filter(m => m.department === assignedDepartment)
-      setCompletionSelection(
-        Object.fromEntries(deptMembers.map(m => [m.id, false]))
-      )
+      setCompletionSelection(Object.fromEntries(deptMembers.map(m => [m.id, false])))
       setCompletionSelectModal({ ...task, deptMembers, assignedDepartment })
       return
     }
 
-    // For other batch tasks or admins, complete all
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status: 'completed', progress: 100 })
-      .eq('batch_id', task.batch_id)
-    if (error) alert(error.message)
-    else refetch()
+    // For team or generic batch tasks — complete all optimistically
+    const originalTasks = [...tasks]
+    const updated = tasks.map(t =>
+      t.batch_id === task.batch_id ? { ...t, status: 'completed', progress: 100 } : t
+    )
+    updateCache(updated)
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'completed', progress: 100 })
+        .eq('batch_id', task.batch_id)
+      if (error) throw error
+    } catch (err) {
+      updateCache(originalTasks)
+      alert('Failed to update: ' + err.message)
+    }
   }
 
+  // ─── Department completion selection (optimistic) ────────────────────────────
   const handleDepartmentCompletion = async (e) => {
     e.preventDefault()
     if (!completionSelectModal) return
@@ -183,17 +199,26 @@ const Tasks = () => {
         return
       }
 
-      // Update selected members to completed
+      // Optimistic update
+      const originalTasks = [...tasks]
+      const updated = tasks.map(t =>
+        t.batch_id === task.batch_id && selectedMemberIds.includes(t.assigned_to)
+          ? { ...t, status: 'completed', progress: 100 }
+          : t
+      )
+      updateCache(updated)
+
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'completed', progress: 100 })
         .eq('batch_id', task.batch_id)
         .in('assigned_to', selectedMemberIds)
 
-      if (error) throw error
+      if (error) {
+        updateCache(originalTasks)
+        throw error
+      }
 
-      // For non-selected members, keep as is (or optionally mark as not completed)
-      refetch()
       setCompletionSelectModal(null)
       setCompletionSelection({})
     } catch (err) {
@@ -207,12 +232,11 @@ const Tasks = () => {
     if (!completionSelectModal) return
     const allSelected = Object.values(completionSelection).every(v => v)
     setCompletionSelection(
-      Object.fromEntries(
-        completionSelectModal.deptMembers.map(m => [m.id, !allSelected])
-      )
+      Object.fromEntries(completionSelectModal.deptMembers.map(m => [m.id, !allSelected]))
     )
   }
 
+  // ─── Member completion request ───────────────────────────────────────────────
   const handleRequestCompletion = async (e) => {
     e.preventDefault()
     setReqLoading(true)
@@ -228,22 +252,115 @@ const Tasks = () => {
     refetch()
   }
 
+  // ─── Admin review completion request ────────────────────────────────────────
   const handleReviewRequest = async (taskId, approve) => {
+    // Optimistic
+    const original = [...tasks]
+    const updated = tasks.map(t =>
+      t.id === taskId
+        ? { ...t, completion_request_status: approve ? 'approved' : 'rejected', ...(approve ? { status: 'completed', progress: 100 } : {}) }
+        : t
+    )
+    updateCache(updated)
+
     const { error } = await supabase.from('tasks').update({
       completion_request_status: approve ? 'approved' : 'rejected',
       ...(approve ? { status: 'completed', progress: 100 } : {}),
     }).eq('id', taskId)
-    if (error) alert(error.message)
-    else refetch()
+
+    if (error) {
+      updateCache(original)
+      alert(error.message)
+    }
   }
 
+  // ─── View Members modal for a batch task ────────────────────────────────────
+  const openMembersModal = useCallback(async (batchTask) => {
+    setMembersModalLoading(true)
+    setMembersModal({ title: batchTask.title, label: batchTask._groupLabel, members: [] })
+
+    try {
+      const { data: batchTasks, error } = await supabase
+        .from('tasks')
+        .select('assigned_to, status, assignee:profiles!tasks_assigned_to_fkey(full_name)')
+        .eq('batch_id', batchTask.batch_id)
+
+      if (error) throw error
+
+      const memberRows = (batchTasks || []).map(t => ({
+        name: t.assignee?.full_name || 'Unknown',
+        status: t.status,
+      }))
+      setMembersModal({ title: batchTask.title, label: batchTask._groupLabel, members: memberRows })
+    } catch (err) {
+      alert('Failed to load members: ' + err.message)
+      setMembersModal(null)
+    } finally {
+      setMembersModalLoading(false)
+    }
+  }, [])
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
   const tabs = ['all', 'not_started', 'in_progress', 'completed', 'blocked']
   const priorityColor = (p) => p === 'high' ? 'bg-error/20 text-error' : p === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-primary/20 text-primary'
   const statusColor = (s) => s === 'completed' ? 'bg-success/20 text-success' : s === 'in_progress' ? 'bg-primary/20 text-primary' : s === 'blocked' ? 'bg-error/20 text-error' : 'bg-surface-variant text-on-surface-variant'
   const reqStatusColor = (s) => s === 'approved' ? 'text-success' : s === 'pending' ? 'text-amber-400' : s === 'rejected' ? 'text-error' : ''
 
-  const upcoming = [...(tasks || [])].filter(t => t.due_date && t.status !== 'completed').sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5)
-  const pendingRequests = (tasks || []).filter(t => !t.isEventTask && t.completion_request_status === 'pending')
+  // ─── Sidebar: deduplicated upcoming deadlines ────────────────────────────────
+  const upcoming = useMemo(() => {
+    const seen = new Set()
+    return [...(tasks || [])]
+      .filter(t => t.due_date && t.status !== 'completed')
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+      .filter(t => {
+        const key = t.batch_id || t.id
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, 5)
+  }, [tasks])
+
+  // ─── All completion requests (for Requests tab) ──────────────────────────────
+  const allRequests = useMemo(() =>
+    (tasks || []).filter(t => !t.isEventTask && t.completion_request_status && t.completion_request_status !== 'none'),
+    [tasks]
+  )
+  const pendingRequests = useMemo(() =>
+    allRequests.filter(t => t.completion_request_status === 'pending'),
+    [allRequests]
+  )
+
+  // ─── Group batch tasks for admin "All Tasks" view ────────────────────────────
+  // For admins, collapse batch tasks into a single representative card
+  const displayTasks = useMemo(() => {
+    if (!canManage || viewTab !== 'all') return tasks || []
+    const seen = new Set()
+    return (tasks || []).map(t => {
+      if (!t.batch_id) return t
+      if (seen.has(t.batch_id)) return null
+      seen.add(t.batch_id)
+
+      // Build label from admin_comment
+      const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
+      const teamMatch = t.admin_comment?.match(/team:([^;]+)/)
+      let groupLabel = null
+      if (deptMatch) groupLabel = `Dept: ${deptMatch[1].trim()}`
+      else if (teamMatch) groupLabel = `Team: ${teamMatch[1].trim()}`
+      else groupLabel = 'Group Task'
+
+      // Count siblings
+      const siblings = (tasks || []).filter(s => s.batch_id === t.batch_id)
+      const completed = siblings.filter(s => s.status === 'completed').length
+
+      return { ...t, _isGroupCard: true, _groupLabel: groupLabel, _memberCount: siblings.length, _completedCount: completed }
+    }).filter(Boolean)
+  }, [tasks, canManage, viewTab])
+
+  // ─── View tab options ─────────────────────────────────────────────────────────
+  const viewTabs = canManage
+    ? ['all', 'mine', 'team', 'requests']
+    : ['mine', 'team']
 
   return (
     <main className="flex-1 px-4 md:px-stack-lg pt-24 pb-section-gap max-w-7xl mx-auto w-full animate-in fade-in duration-200">
@@ -348,144 +465,242 @@ const Tasks = () => {
         </div>
       )}
 
-      {/* Pending Completion Requests — only visible to leads/admins */}
-      {canManage && pendingRequests.length > 0 && (
-        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">pending_actions</span>
-            Pending Completion Requests ({pendingRequests.length})
-          </h3>
-          <div className="space-y-2">
-            {pendingRequests.map(t => (
-              <div key={t.id} className="bg-surface-container rounded-lg border border-outline-variant/50 p-4 flex flex-col md:flex-row md:items-center gap-3">
-                <div className="flex-1">
-                  <div className="text-sm font-bold text-on-surface">{t.title}</div>
-                  <div className="text-xs text-on-surface-variant mt-1">
-                    <span className="font-semibold">Reg No:</span> {t.completion_reg_no || '—'}
-                  </div>
-                  <div className="text-xs text-on-surface-variant mt-0.5">
-                    <span className="font-semibold">Description:</span> {t.completion_desc || '—'}
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => handleReviewRequest(t.id, true)} className="px-3 py-1.5 bg-success/20 text-success border border-success/30 rounded-lg font-label-caps text-xs uppercase font-bold hover:bg-success/30 transition-colors">Accept</button>
-                  <button onClick={() => handleReviewRequest(t.id, false)} className="px-3 py-1.5 bg-error/20 text-error border border-error/30 rounded-lg font-label-caps text-xs uppercase font-bold hover:bg-error/30 transition-colors">Reject</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* View + Status tabs */}
       <div className="flex gap-2 mb-6">
-        <div className="bg-surface-container rounded-lg p-1 flex">
-          {(canManage ? ['all', 'mine', 'team'] : ['mine', 'team']).map(v => (
-            <button key={v} onClick={() => setViewTab(v)} className={`px-4 py-2 font-label-caps text-xs uppercase font-bold rounded-md transition-all ${viewTab === v ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}>
-              {v === 'all' ? 'All Tasks' : v === 'mine' ? 'Your Tasks' : 'Your Team Tasks'}
+        <div className="bg-surface-container rounded-lg p-1 flex flex-wrap gap-1">
+          {viewTabs.map(v => (
+            <button
+              key={v}
+              onClick={() => setViewTab(v)}
+              className={`px-4 py-2 font-label-caps text-xs uppercase font-bold rounded-md transition-all ${viewTab === v ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'}`}
+            >
+              {v === 'all' ? 'All Tasks' : v === 'mine' ? 'Your Tasks' : v === 'team' ? 'Your Team Tasks' : (
+                <span className="flex items-center gap-1">
+                  Requests
+                  {pendingRequests.length > 0 && (
+                    <span className="bg-amber-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">{pendingRequests.length}</span>
+                  )}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-outline-variant mb-6 pb-px overflow-x-auto no-scrollbar">
-        {tabs.map(t => (
-          <button key={t} onClick={() => setStatusTab(t)} className={`px-4 py-2.5 font-label-caps text-xs uppercase font-bold border-b-2 transition-all whitespace-nowrap ${statusTab === t ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{t.replace('_', ' ')}</button>
-        ))}
-      </div>
+      {/* ── REQUESTS TAB ─────────────────────────────────────────────────────── */}
+      {viewTab === 'requests' && canManage ? (
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <h3 className="text-sm font-bold text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-base text-amber-400">pending_actions</span>
+              Completion Requests
+              <span className="text-on-surface-variant font-normal">({allRequests.length})</span>
+            </h3>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {loading ? (
-            <ListSkeleton items={5} variant="task" showAvatar={true} />
-          ) : tasks.length === 0 ? (
-            <div className="bg-surface-container rounded-xl border border-outline-variant p-12 text-center text-on-surface-variant italic">No tasks found.</div>
-          ) : (
-            <div className="space-y-3">
-              {tasks.map(t => (
-                <div key={t.id} className="bg-surface-container rounded-xl border border-outline-variant p-4 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-4">
-                    <button onClick={() => canManage ? toggleTaskCompleted(t) : null} className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${t.status === 'completed' ? 'bg-success border-success' : 'border-outline-variant hover:border-primary'} ${!canManage && 'cursor-default'}`}>
-                      {t.status === 'completed' && <span className="material-symbols-outlined text-xs text-black">check</span>}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`font-bold text-sm ${t.status === 'completed' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{t.title}</span>
-                        {t.isMine && <span className="text-[10px] font-bold font-label-caps uppercase bg-success/10 text-success border border-success/20 px-2 py-0.5 rounded">Your Task</span>}
-                        {t.isEventTask && <span className="text-[10px] font-bold font-label-caps uppercase bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">groups</span>{t.team?.name || 'Team'}</span>}
-                        {t.batch_id && <span className="text-[10px] font-bold font-label-caps uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Group Task</span>}
-                        <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${priorityColor(t.priority)}`}>{t.priority}</span>
-                        <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${statusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
-                        {!t.isEventTask && t.completion_request_status && t.completion_request_status !== 'none' && (
+            {loading ? (
+              <ListSkeleton items={4} variant="task" />
+            ) : allRequests.length === 0 ? (
+              <div className="bg-surface-container rounded-xl border border-outline-variant p-12 text-center text-on-surface-variant italic">No completion requests yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {allRequests.map(t => (
+                  <div key={t.id} className="bg-surface-container rounded-xl border border-outline-variant p-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3">
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-on-surface">{t.title}</div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          {t.assignee?.full_name && <span className="text-xs text-on-surface-variant">By: <span className="font-semibold">{t.assignee.full_name}</span></span>}
                           <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded border ${reqStatusColor(t.completion_request_status)} border-current bg-current/10`}>
-                            {t.completion_request_status === 'pending' ? 'Request Pending' : t.completion_request_status === 'approved' ? 'Request Approved' : 'Request Rejected'}
+                            {t.completion_request_status === 'pending' ? 'Pending' : t.completion_request_status === 'approved' ? 'Approved' : 'Rejected'}
                           </span>
+                        </div>
+                        {t.completion_reg_no && (
+                          <div className="text-xs text-on-surface-variant mt-1">
+                            <span className="font-semibold">Reg No:</span> {t.completion_reg_no}
+                          </div>
+                        )}
+                        {t.completion_desc && (
+                          <div className="text-xs text-on-surface-variant mt-0.5">
+                            <span className="font-semibold">Note:</span> {t.completion_desc}
+                          </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] text-outline font-label-caps uppercase">
-                        {t.assignee?.full_name && <span>Assigned to {t.assignee.full_name}</span>}
-                        {t.due_date && <span>Due {new Date(t.due_date).toLocaleDateString()}</span>}
-                      </div>
-                      <div className="mt-2 w-full h-1.5 bg-surface rounded-full"><div className="h-full bg-primary rounded-full transition-all" style={{ width: `${t.progress ?? 0}%` }}/></div>
+                      {t.completion_request_status === 'pending' && (
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => handleReviewRequest(t.id, true)} className="px-3 py-1.5 bg-success/20 text-success border border-success/30 rounded-lg font-label-caps text-xs uppercase font-bold hover:bg-success/30 transition-colors">Accept</button>
+                          <button onClick={() => handleReviewRequest(t.id, false)} className="px-3 py-1.5 bg-error/20 text-error border border-error/30 rounded-lg font-label-caps text-xs uppercase font-bold hover:bg-error/30 transition-colors">Reject</button>
+                        </div>
+                      )}
                     </div>
-                    <span className="text-xs font-mono-data text-primary shrink-0">{t.progress ?? 0}%</span>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                  {/* Action Buttons */}
-                  {!t.isEventTask && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-outline-variant/50">
-                      {/* Member: request completion */}
-                      {t.isMine && t.status !== 'completed' && (t.completion_request_status === 'none' || !t.completion_request_status) && (
-                        <button onClick={() => setRequestModal(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors">
-                          Request Completion
+          {/* Sidebar */}
+          <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm h-fit">
+            <h3 className="font-bold text-sm text-on-surface mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-lg text-primary">alarm</span>Upcoming Deadlines</h3>
+            {upcoming.length === 0 ? (
+              <p className="text-xs text-on-surface-variant italic">No upcoming deadlines.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcoming.map(t => (
+                  <div key={t.id} className="bg-surface-container-low rounded-lg border border-outline-variant/50 p-3">
+                    <div className="text-xs font-bold text-on-surface mb-1 truncate">{t.title}</div>
+                    <div className="text-[10px] text-outline font-label-caps uppercase">{new Date(t.due_date).toLocaleDateString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── MAIN TASK LIST (all / mine / team tabs) ──────────────────────── */
+        <>
+          <div className="flex gap-2 border-b border-outline-variant mb-6 pb-px overflow-x-auto no-scrollbar">
+            {tabs.map(t => (
+              <button key={t} onClick={() => setStatusTab(t)} className={`px-4 py-2.5 font-label-caps text-xs uppercase font-bold border-b-2 transition-all whitespace-nowrap ${statusTab === t ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`}>{t.replace('_', ' ')}</button>
+            ))}
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              {loading ? (
+                <ListSkeleton items={5} variant="task" showAvatar={true} />
+              ) : displayTasks.length === 0 ? (
+                <div className="bg-surface-container rounded-xl border border-outline-variant p-12 text-center text-on-surface-variant italic">No tasks found.</div>
+              ) : (
+                <div className="space-y-3">
+                  {displayTasks.map(t => (
+                    <div key={t.batch_id ? `batch-${t.batch_id}` : t.id} className="bg-surface-container rounded-xl border border-outline-variant p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-4">
+                        {/* Checkbox — only for non-group cards */}
+                        <button
+                          onClick={() => {
+                            if (!canManage) return
+                            if (t._isGroupCard) {
+                              handleCompleteAll(t)
+                            } else {
+                              toggleTaskCompleted(t)
+                            }
+                          }}
+                          className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${t.status === 'completed' ? 'bg-success border-success' : 'border-outline-variant hover:border-primary'} ${!canManage && 'cursor-default'}`}
+                        >
+                          {t.status === 'completed' && <span className="material-symbols-outlined text-xs text-black">check</span>}
                         </button>
-                      )}
-                      {/* Department Lead: select completion per member for department tasks */}
-                      {(() => {
-                        const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
-                        const isDeptTask = !!deptMatch
-                        return (isDepartmentLead || isSystemAdmin) && t.batch_id && isDeptTask && t.status !== 'completed'
-                      })() && (
-                        <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors">
-                          Select Completed Members
-                        </button>
-                      )}
-                      {/* Lead/Admin: complete for whole group (for non-department tasks) */}
-                      {(() => {
-                        const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
-                        const isDeptTask = !!deptMatch
-                        return canManage && t.batch_id && !isDeptTask && t.status !== 'completed'
-                      })() && (
-                        <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-success/10 text-success border border-success/20 rounded-lg hover:bg-success/20 transition-colors">
-                          Complete for Whole Group
-                        </button>
-                      )}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className={`font-bold text-sm ${t.status === 'completed' ? 'line-through text-on-surface-variant' : 'text-on-surface'}`}>{t.title}</span>
+
+                            {/* Group task label (dept / team) */}
+                            {t._isGroupCard && t._groupLabel && (
+                              <span className="text-[10px] font-bold font-label-caps uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[10px]">group</span>
+                                {t._groupLabel}
+                              </span>
+                            )}
+
+                            {/* Member progress badge for group cards */}
+                            {t._isGroupCard && (
+                              <span className="text-[10px] font-bold font-label-caps uppercase bg-surface-variant text-on-surface-variant border border-outline-variant px-2 py-0.5 rounded">
+                                {t._completedCount}/{t._memberCount} done
+                              </span>
+                            )}
+
+                            {!t._isGroupCard && t.isMine && <span className="text-[10px] font-bold font-label-caps uppercase bg-success/10 text-success border border-success/20 px-2 py-0.5 rounded">Your Task</span>}
+                            {t.isEventTask && <span className="text-[10px] font-bold font-label-caps uppercase bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">groups</span>{t.team?.name || 'Team'}</span>}
+                            <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${priorityColor(t.priority)}`}>{t.priority}</span>
+                            <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${statusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
+                            {!t.isEventTask && !t._isGroupCard && t.completion_request_status && t.completion_request_status !== 'none' && (
+                              <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded border ${reqStatusColor(t.completion_request_status)} border-current bg-current/10`}>
+                                {t.completion_request_status === 'pending' ? 'Request Pending' : t.completion_request_status === 'approved' ? 'Request Approved' : 'Request Rejected'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-4 text-[10px] text-outline font-label-caps uppercase">
+                            {!t._isGroupCard && t.assignee?.full_name && <span>Assigned to {t.assignee.full_name}</span>}
+                            {t.due_date && <span>Due {new Date(t.due_date).toLocaleDateString()}</span>}
+                          </div>
+
+                          <div className="mt-2 w-full h-1.5 bg-surface rounded-full">
+                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${t._isGroupCard ? Math.round((t._completedCount / t._memberCount) * 100) : (t.progress ?? 0)}%` }}/>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono-data text-primary shrink-0">
+                          {t._isGroupCard ? `${Math.round((t._completedCount / t._memberCount) * 100)}%` : `${t.progress ?? 0}%`}
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-outline-variant/50 flex-wrap">
+                        {/* Group card: View Members button */}
+                        {t._isGroupCard && (
+                          <button
+                            onClick={() => openMembersModal(t)}
+                            className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-sm">group</span>
+                            View Members
+                          </button>
+                        )}
+
+                        {/* Group card (dept): select completion per member */}
+                        {t._isGroupCard && (() => {
+                          const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
+                          return (isDepartmentLead || isSystemAdmin) && deptMatch && t.status !== 'completed'
+                        })() && (
+                          <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors">
+                            Mark Members Complete
+                          </button>
+                        )}
+
+                        {/* Group card (team): complete all */}
+                        {t._isGroupCard && (() => {
+                          const deptMatch = t.admin_comment?.match(/department:([^;]+)/)
+                          return canManage && !deptMatch && t.status !== 'completed'
+                        })() && (
+                          <button onClick={() => handleCompleteAll(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-success/10 text-success border border-success/20 rounded-lg hover:bg-success/20 transition-colors">
+                            Complete All
+                          </button>
+                        )}
+
+                        {/* Non-group member task: request completion */}
+                        {!t._isGroupCard && !t.isEventTask && t.isMine && t.status !== 'completed' && (t.completion_request_status === 'none' || !t.completion_request_status) && (
+                          <button onClick={() => setRequestModal(t)} className="text-xs font-bold font-label-caps uppercase px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors">
+                            Request Completion
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Sidebar - Upcoming Deadlines */}
-        <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm h-fit">
-          <h3 className="font-bold text-sm text-on-surface mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-lg text-primary">alarm</span>Upcoming Deadlines</h3>
-          {upcoming.length === 0 ? (
-            <p className="text-xs text-on-surface-variant italic">No upcoming deadlines.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcoming.map(t => (
-                <div key={t.id} className="bg-surface-container-low rounded-lg border border-outline-variant/50 p-3">
-                  <div className="text-xs font-bold text-on-surface mb-1 truncate">{t.title}</div>
-                  <div className="text-[10px] text-outline font-label-caps uppercase">{new Date(t.due_date).toLocaleDateString()}</div>
+            {/* Sidebar — deduplicated upcoming deadlines */}
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-5 shadow-sm h-fit">
+              <h3 className="font-bold text-sm text-on-surface mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-lg text-primary">alarm</span>Upcoming Deadlines</h3>
+              {upcoming.length === 0 ? (
+                <p className="text-xs text-on-surface-variant italic">No upcoming deadlines.</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcoming.map(t => (
+                    <div key={t.batch_id ? `up-${t.batch_id}` : t.id} className="bg-surface-container-low rounded-lg border border-outline-variant/50 p-3">
+                      <div className="text-xs font-bold text-on-surface mb-1 truncate">{t.title}</div>
+                      <div className="text-[10px] text-outline font-label-caps uppercase">{new Date(t.due_date).toLocaleDateString()}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
-      {/* Completion Request Modal */}
+      {/* ── Completion Request Modal (member) ───────────────────────────────── */}
       {requestModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setRequestModal(null)}>
           <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -524,19 +739,19 @@ const Tasks = () => {
         </div>
       )}
 
-      {/* Department Lead Completion Selection Modal */}
+      {/* ── Department Lead Completion Selection Modal ────────────────────────── */}
       {completionSelectModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setCompletionSelectModal(null); setCompletionSelection({}) }}>
           <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-base text-on-surface mb-1">Mark Completed Members</h3>
-            <p className="text-xs text-on-surface-variant mb-5">"{completionSelectModal.title}" - Department: {completionSelectModal.assignedDepartment}</p>
-            <form onSubmit={handleDepartmentCompletion} className="space-y-4 max-h-[60vh] overflow-y-auto">
+            <p className="text-xs text-on-surface-variant mb-5">"{completionSelectModal.title}" — Department: {completionSelectModal.assignedDepartment}</p>
+            <form onSubmit={handleDepartmentCompletion} className="space-y-4">
               <div className="space-y-2">
                 {completionSelectModal.deptMembers.map(m => (
                   <label key={m.id} className="flex items-center gap-2 p-2 bg-surface-container-low rounded-lg border border-outline-variant hover:bg-surface-container-high transition-colors cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={completionSelection[m.id]}
+                      checked={!!completionSelection[m.id]}
                       onChange={e => setCompletionSelection(prev => ({ ...prev, [m.id]: e.target.checked }))}
                       className="w-4 h-4 text-primary border-outline-variant rounded focus:ring-primary"
                     />
@@ -556,6 +771,55 @@ const Tasks = () => {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── View Members Modal (batch task member status) ─────────────────────── */}
+      {membersModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setMembersModal(null)}>
+          <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-base text-on-surface">Member Status</h3>
+              <button onClick={() => setMembersModal(null)} className="text-on-surface-variant hover:text-on-surface transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-on-surface-variant mb-1">"{membersModal.title}"</p>
+            {membersModal.label && (
+              <span className="inline-block text-[10px] font-bold font-label-caps uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded mb-4">
+                {membersModal.label}
+              </span>
+            )}
+
+            {membersModalLoading ? (
+              <div className="space-y-2">
+                {[1,2,3].map(i => (
+                  <div key={i} className="h-10 bg-surface-container-low rounded-lg border border-outline-variant animate-pulse" />
+                ))}
+              </div>
+            ) : membersModal.members.length === 0 ? (
+              <p className="text-xs text-on-surface-variant italic">No members found.</p>
+            ) : (
+              <div className="space-y-2">
+                {membersModal.members.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg border border-outline-variant">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${m.status === 'completed' ? 'bg-success' : 'bg-amber-400'}`} />
+                      <span className="text-sm text-on-surface font-medium">{m.name}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold font-label-caps uppercase px-2 py-0.5 rounded ${m.status === 'completed' ? 'bg-success/20 text-success' : 'bg-amber-500/20 text-amber-400'}`}>
+                      {m.status === 'completed' ? 'Completed' : 'Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 pt-3 border-t border-outline-variant/50 flex justify-between text-xs text-on-surface-variant">
+              <span>{membersModal.members.filter(m => m.status === 'completed').length} completed</span>
+              <span>{membersModal.members.filter(m => m.status !== 'completed').length} pending</span>
+            </div>
           </div>
         </div>
       )}
