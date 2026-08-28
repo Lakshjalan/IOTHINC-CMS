@@ -109,6 +109,8 @@ const Tasks = () => {
         const deptMembers = members.filter(m => m.department === form.department)
         if (deptMembers.length === 0) {
           alert(`No members found in department: ${form.department}`)
+          setIsSubmitting(false)
+          return
         }
         for (const m of deptMembers) {
           const { error } = await supabase.from('tasks').insert({
@@ -131,6 +133,8 @@ const Tasks = () => {
           .from('team_members').select('member_id').eq('team_id', form.team_id)
         if (!teamMembers || teamMembers.length === 0) {
           alert('No members found in selected team.')
+          setIsSubmitting(false)
+          return
         } else {
           for (const member of teamMembers) {
             const { error } = await supabase.from('tasks').insert({
@@ -138,6 +142,12 @@ const Tasks = () => {
               admin_comment: `team:${teamName}`
             })
             if (error) throw error
+            await sendNotification({
+              title: 'New Task Assigned',
+              message: `You have been assigned a new task: "${form.title}"`,
+              type: 'task',
+              target_member_id: member.member_id,
+            })
           }
           refetch()
         }
@@ -239,6 +249,12 @@ const Tasks = () => {
   // ─── Member completion request ───────────────────────────────────────────────
   const handleRequestCompletion = async (e) => {
     e.preventDefault()
+    // Safety: ensure the task belongs to the current user
+    if (requestModal.assigned_to !== user?.id) {
+      alert('You can only request completion for your own tasks.')
+      setRequestModal(null)
+      return
+    }
     setReqLoading(true)
     const { error } = await supabase.from('tasks').update({
       completion_request_status: 'pending',
@@ -336,9 +352,17 @@ const Tasks = () => {
   // ─── Group batch tasks for admin "All Tasks" view ────────────────────────────
   // For admins, collapse batch tasks into a single representative card
   const displayTasks = useMemo(() => {
-    if (!canManage || effectiveViewTab !== 'all') return tasks || []
+    let result = tasks || []
+
+    // SAFETY: When viewing "Your Tasks", guarantee only the current user's
+    // tasks are displayed, regardless of what the hook returned.
+    if (effectiveViewTab === 'mine') {
+      result = result.filter(t => t.assigned_to === user?.id)
+    }
+
+    if (!canManage || effectiveViewTab !== 'all') return result
     const seen = new Set()
-    return (tasks || []).map(t => {
+    return result.map(t => {
       if (!t.batch_id) return t
       if (seen.has(t.batch_id)) return null
       seen.add(t.batch_id)
@@ -357,7 +381,7 @@ const Tasks = () => {
 
       return { ...t, _isGroupCard: true, _groupLabel: groupLabel, _memberCount: siblings.length, _completedCount: completed }
     }).filter(Boolean)
-  }, [tasks, canManage, effectiveViewTab])
+  }, [tasks, canManage, effectiveViewTab, user?.id])
 
   // ─── View tab options ─────────────────────────────────────────────────────────
   const viewTabs = canManage

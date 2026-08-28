@@ -195,6 +195,15 @@ export const useTasks = (statusFilter = 'All', viewFilter = 'all') => {
         return new Date(a.due_date) - new Date(b.due_date);
       })
 
+      // SAFETY FILTER: When viewFilter is 'mine', guarantee only the current
+      // user's tasks are returned. The DB query already filters with
+      // .eq('assigned_to', user.id), but this acts as a belt-and-suspenders
+      // guard against cache contamination or stale closures that could leak
+      // other users' tasks into the "Your Tasks" view.
+      if (viewFilter === 'mine') {
+        allTasks = allTasks.filter(t => t.assigned_to === user.id)
+      }
+
       if (statusFilter && statusFilter !== 'All' && statusFilter !== 'all') {
         allTasks = allTasks.filter(t => t.status === statusFilter)
       }
