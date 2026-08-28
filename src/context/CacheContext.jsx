@@ -316,6 +316,10 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     }
   }, [key, cache])
 
+  // Keep a ref to the current key to prevent race conditions during rapid key changes
+  const keyRef = useRef(key)
+  keyRef.current = key
+
   // Track if component is mounted
   const mountedRef = useRef(true)
   useEffect(() => {
@@ -326,7 +330,8 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
   const executeFetch = useCallback(async (isBackground = false, forceRefresh = false) => {
     if (!enabled) return
 
-    const currentCached = cache.get(key)
+    const currentKey = key
+    const currentCached = cache.get(currentKey)
     // Use dataRef.current so we always see the live data value,
     // not a stale closure capture. This prevents the skeleton loader
     // from appearing after a mutation invalidates the cache but the
@@ -339,9 +344,11 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
     setError(null)
 
     try {
-      const result = await cache.getOrFetch(key, fetcherRef.current, { ttl, tags, forceRefresh })
+      const result = await cache.getOrFetch(currentKey, fetcherRef.current, { ttl, tags, forceRefresh })
 
       if (!mountedRef.current) return
+      // Prevent race conditions: if the key changed while we were fetching, ignore this result
+      if (currentKey !== keyRef.current) return
 
       setData(result.data)
       setIsStale(false)
@@ -351,16 +358,18 @@ export const useCachedQuery = (key, fetcher, options = {}) => {
       }
     } catch (err) {
       if (!mountedRef.current) return
+      if (currentKey !== keyRef.current) return
+      
       setError(err.message)
 
       // Try to get stale data on error
-      const stale = cache.get(key)
+      const stale = cache.get(currentKey)
       if (stale) {
         setData(stale.data)
         setIsStale(true)
       }
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && currentKey === keyRef.current) {
         setLoading(false)
       }
     }
