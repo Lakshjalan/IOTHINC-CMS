@@ -20,6 +20,7 @@ import Unauthorized from './pages/Unauthorized'
   Fix for Lighthouse: "Reduce unused JavaScript (est. savings 2,197 KiB)"
 */
 const Login          = lazy(() => import('./pages/Login'))
+const UpdatePassword = lazy(() => import('./pages/UpdatePassword'))
 const Home           = lazy(() => import('./pages/Home'))
 const Dashboard      = lazy(() => import('./pages/Dashboard'))
 const Members        = lazy(() => import('./pages/Members'))
@@ -175,6 +176,9 @@ function AppRoutes() {
         (user && profile && !profile.needs_approval)
           ? <Navigate to="/dashboard" replace/>
           : <Suspense fallback={<AuthSplash />}><Login /></Suspense>
+      } />
+      <Route path="/update-password" element={
+        <Suspense fallback={<AuthSplash />}><UpdatePassword /></Suspense>
       } />
 
       {/* Dedicated Error Routes */}

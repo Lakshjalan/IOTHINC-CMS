@@ -56,6 +56,27 @@ const Login = () => {
   const [success, setSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    setForgotLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/update-password`,
+      })
+      if (error) throw error
+      alert("Password reset email sent! Check your inbox.")
+      setShowForgotModal(false)
+    } catch (err) {
+      alert("Error: " + err.message)
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -271,7 +292,7 @@ const Login = () => {
                   <input className="w-4 h-4 rounded border-white/20 bg-[#111116] text-primary focus:ring-primary focus:ring-offset-0" type="checkbox" />
                   <span className="text-muted group-hover:text-white transition-colors">Remember me</span>
                 </label>
-                <a className="text-primary hover:text-primary-muted font-medium" href="#forgot">Forgot password?</a>
+                <button type="button" onClick={() => setShowForgotModal(true)} className="text-primary hover:text-primary-muted font-medium">Forgot password?</button>
               </div>
             )}
 
@@ -337,9 +358,43 @@ const Login = () => {
 
         </div>
       </section>
+      
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111116] border border-white/10 rounded-base p-8 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setShowForgotModal(false)} className="absolute top-4 right-4 text-muted hover:text-white transition-colors">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <h3 className="font-syne font-bold text-xl text-white mb-2">Reset Password</h3>
+            <p className="text-sm text-muted mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+            
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="relative flex items-center bg-[#1A1A24] border border-white/10 rounded-base h-[46px] px-4 focus-within:border-primary transition-colors">
+                <span className="material-symbols-outlined text-muted text-xl mr-3">mail</span>
+                <input 
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="Your email address"
+                  className="w-full bg-transparent border-none p-0 text-sm focus:ring-0 text-white placeholder:text-muted/50"
+                  required
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={forgotLoading}
+                className="w-full h-[46px] bg-primary text-white font-bold rounded-base hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
-
 
 export default Login;
