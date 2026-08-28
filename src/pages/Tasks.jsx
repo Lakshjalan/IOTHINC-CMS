@@ -373,7 +373,7 @@ const Tasks = () => {
       let groupLabel = null
       if (deptMatch) groupLabel = `Dept: ${deptMatch[1].trim()}`
       else if (teamMatch) groupLabel = `Team: ${teamMatch[1].trim()}`
-      else groupLabel = 'Group Task'
+      else groupLabel = 'Solo Task'
 
       // Count siblings
       const siblings = (tasks || []).filter(s => s.batch_id === t.batch_id)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+Ffimport React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
@@ -252,7 +252,7 @@ const Login = () => {
                 <span className="material-symbols-outlined text-muted text-xl mr-3 group-focus-within:text-primary">mail</span>
                 <input 
                   className="w-full bg-transparent border-none p-0 text-sm focus:ring-0 placeholder:text-muted/50 text-white" 
-                  placeholder="name@nexusclub.com" 
+                  placeholder="name.lastname202x@vitstudent.ac.in" 
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
