@@ -67,6 +67,14 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
+      if (event === 'PASSWORD_RECOVERY') {
+        if (session?.user) setUser(session.user)
+        if (window.location.pathname !== '/update-password') {
+          window.location.href = '/update-password'
+        }
+        return
+      }
+
       if (event === 'TOKEN_REFRESHED') {
         // Token silently refreshed — no need to re-fetch profile
         if (session?.user) setUser(session.user)
